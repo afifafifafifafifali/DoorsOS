@@ -83,13 +83,6 @@ void *memmove(void *dest, const void *src, size_t n) {
     return dest;
 }
 
-void test_pmm_alloc() {
-    void* p1 = (void*)PhysicalAllocate(1);
-    debugf("Allocated page at %p\n", p1);
-
-    PhysicalFree((size_t)p1, 1);
-    debugf("Freed page at %p\n", p1);
-}
 
 int memcmp(const void *s1, const void *s2, size_t n) {
     const uint8_t *p1 = (const uint8_t *)s1;
@@ -441,7 +434,7 @@ printf("Initing PMM\n");
 
 
 // Initialize your physical memory manager if you have one
-setMemoryMap(0); 
+setMemoryMap(4);
 allocator_init();
     // Uncomment the following line to test SSE functionality.
     // This will double the value 21.0f and print the result.
