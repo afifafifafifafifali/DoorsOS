@@ -10,6 +10,7 @@
 #include "interrupts/pit.h"
 #include "fs/detect_ahci.h"
 #include "mem/new/pmm.h"
+#include "gui/windows.h"
 #include "interrupts/idt.h"
 #include "fs/pci.h"
 #include "fs/ahci.h"
@@ -187,7 +188,13 @@ void minimal_bash() {
                     ls(pathy);
                 }
             }
+            else if(strEql(result,"test_windows")){
+                HWND win = CreateWindow("Hi", 0, 0, 8 * 20, 8 * 5, 0);
 
+                if (win) {
+                    DrawText(win, 0, 8, "Hello, Doors!", 0);
+                }
+            }
             // cat
             else if (strncmp(result, "cat ", 4) == 0) {
                 string_t filename = result + 4;
@@ -198,7 +205,15 @@ void minimal_bash() {
                     cat(filename);
                 }
             }
+            else if(strEql("A", result)){
+                kprint_color("Green on black\n", 2, 0);
+                kprint_color("Bright red on bright yellow\n", 9, 11); // 9 = bright red, 11 = bright yellow
 
+
+
+
+
+            }
             // mkfile
             else if (strncmp(result, "mkfile ", 7) == 0) {
                 string_t filename = result + 7;
@@ -337,8 +352,6 @@ void test_page_mapping() {
 
     
 }
-
-
 
 // this is the KFC Kernel's entry point.
 void kmain(void) {

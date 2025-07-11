@@ -28,6 +28,8 @@
         "pmm.h": "c",
         "bootloader.h": "c",
         "paging.h": "c",
-        "utilities.h": "c"
+        "utilities.h": "c",
+        "windows.h": "c",
+        "heap.h": "c"
     }
 }
