@@ -340,7 +340,7 @@ void test_page_mapping() {
 
 
 
-// Kernel's entry point.
+// this is the KFC Kernel's entry point.
 void kmain(void) {
     enable_sse(); // Must be at this location
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
