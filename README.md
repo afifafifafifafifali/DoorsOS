@@ -31,6 +31,7 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Add ATA/PIO(Can also support sata)
 * [X]  Add FAT32 Read
 * [X]  Add fat32 write
+* [X]  Add a PMM, PCI, And rpoper mapPage driver
 * [ ]  Add Ext2
 * [ ]  Add VFS
 * [ ]  Add ELF support
