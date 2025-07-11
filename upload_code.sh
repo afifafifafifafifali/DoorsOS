@@ -7,5 +7,4 @@ read commit_message
 git commit -m $commit_message
 clear
 echo "Committing updates to github"
-git push origin main
-
+git push -u origin main

@@ -26,6 +26,8 @@
         "serial_io.h": "c",
         "thirdpartycfg.h": "c",
         "pmm.h": "c",
-        "bootloader.h": "c"
+        "bootloader.h": "c",
+        "paging.h": "c",
+        "utilities.h": "c"
     }
 }
