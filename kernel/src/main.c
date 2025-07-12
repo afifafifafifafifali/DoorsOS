@@ -188,13 +188,7 @@ void minimal_bash() {
                     ls(pathy);
                 }
             }
-            else if(strEql(result,"test_windows")){
-                HWND win = CreateWindow("Hi", 0, 0, 8 * 20, 8 * 5, 0);
-
-                if (win) {
-                    DrawText(win, 0, 8, "Hello, Doors!", 0);
-                }
-            }
+            
             // cat
             else if (strncmp(result, "cat ", 4) == 0) {
                 string_t filename = result + 4;
@@ -206,13 +200,16 @@ void minimal_bash() {
                 }
             }
             else if(strEql("A", result)){
-                kprint_color("Green on black\n", 2, 0);
-                kprint_color("Bright red on bright yellow\n", 9, 11); // 9 = bright red, 11 = bright yellow
+               // RGB: red foreground on 4-bit blue background
+            kprint_color("Hello", 0xFF0000, true, 4, false);
+            kprint_color("World", 0xFFFFFF, true, 0x202020, true);
+            kprint_color("Classic ANSI", 11, false, 9, false);
+            kprint_color_at(10, 5, "Hello", 0xFF0000, true, 0x000000, true);
+            }
+            else if (strEql(result,"rect")){
+                uint32_t blue = 0x0000FF;
 
-
-
-
-
+                draw_rect(10, 10, 100, 50, blue);
             }
             // mkfile
             else if (strncmp(result, "mkfile ", 7) == 0) {

@@ -32,25 +32,21 @@ typedef struct tagWINDOW {
 // Global window count
 #define MAX_WINDOWS 32
 extern WINDOW* __windows[MAX_WINDOWS];
-
-void kprint_color(const char* text, uint8_t fg_color_code, uint8_t bg_color_code);
-// Create a new window
-HWND CreateWindow(const char* title, int x, int y, int width, int height, COLORREF bgColor);
-
-// Render a string in the window
-void DrawText(HWND hwnd, int x, int y, const char* text, COLORREF color);
-
-// Redraw the window (calls your framebuffer/text draw logic)
-void RedrawWindow(HWND hwnd);
-
-// Destroys a window
-void DestroyWindow(HWND hwnd);
-
-// Optional: get client rect
-void GetClientRect(HWND hwnd, RECT* outRect);
-
-#ifdef __cplusplus
+// True color
+void kprint_color(const char* text,
+                  uint32_t fg_color, bool fg_truecolor,
+                  uint32_t bg_color, bool bg_truecolor);
+// Print colored text at a specific (x, y) location using ANSI codes
+void kprint_color_at(int x, int y,
+                     const char* text,
+                     uint32_t fg_color, bool fg_truecolor,
+                     uint32_t bg_color, bool bg_truecolor);      
+                     
+                     
+static inline void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg) {
+    char str[2] = { c, '\0' };
+    kprint_color_at(x, y, str, fg, true, bg, true);
 }
-#endif
-
+void putPixel(int x, int y, uint32_t color);        
+void draw_rect(int x, int y, int w, int h, uint32_t color);             
 #endif // DOORS_WINDOWS_H
