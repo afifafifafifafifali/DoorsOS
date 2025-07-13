@@ -6,7 +6,7 @@ DoorsOS is an x86_64 POSIX-Compilant Limine-based operating system in C. An acti
 
 ![1751969142420](images/Readme/1751969142420.png)
 
-![1752397140584](images/README/Screenshot%20(15).png)
+![1752397140584](https://github.com/afifafifafifafifali/DoorsOS/blob/main/images/Readme/Screenshot%20(15).png)
 
 ## Why make your own OS in [insert year]?
 
