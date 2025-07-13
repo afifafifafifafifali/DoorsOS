@@ -10,7 +10,7 @@ static struct limine_framebuffer* fb = NULL;
 
 
 
-// Map simple 0–15 color indexes to ANSI codes (standard + bright)
+// Map simple 0–15 color indexes to ANSI codes (standard + bright)+truecolor
 
 static const char* ansi_fg_codes[] = {
     "30", "31", "32", "33", "34", "35", "36", "37",     // 0–7 normal
@@ -73,22 +73,20 @@ void kprint_color_at(int x, int y,
 }
 
 void putPixel(int x, int y, uint32_t color) {
-    if (!fb) {
-        fb = framebuffer_request.response->framebuffers[0];
-        if (!fb) return;
-    }
+    if (!fb) fb = framebuffer_request.response->framebuffers[0];
+    if (!fb) return;
 
     if (x < 0 || y < 0 || x >= (int)fb->width || y >= (int)fb->height)
         return;
 
     uint8_t* pixel = (uint8_t*)fb->address + y * fb->pitch + x * 4;
 
-    // BGRA format (common)
-    pixel[0] = color & 0xFF;          // Blue
+    pixel[0] = (color) & 0xFF;        // Blue
     pixel[1] = (color >> 8) & 0xFF;   // Green
     pixel[2] = (color >> 16) & 0xFF;  // Red
-    pixel[3] = 0xFF;                  // Alpha (opaque)
+    pixel[3] = 0xFF;                  // Alpha (or unused)
 }
+
 
 
 void draw_rect(int x, int y, int w, int h, uint32_t color) {
@@ -98,4 +96,30 @@ void draw_rect(int x, int y, int w, int h, uint32_t color) {
         }
     }
 }
+
+void draw_circle(int cx, int cy, int radius, uint32_t color) {
+    int x = radius;
+    int y = 0;
+    int err = 0;
+
+    while (x >= y) {
+        // Draw horizontal lines between the symmetric points to fill the circle
+        for (int px = cx - x; px <= cx + x; px++) {
+            putPixel(px, cy + y, color);
+            putPixel(px, cy - y, color);
+        }
+        for (int px = cx - y; px <= cx + y; px++) {
+            putPixel(px, cy + x, color);
+            putPixel(px, cy - x, color);
+        }
+
+        y += 1;
+        err += 1 + 2*y;
+        if (2*(err - x) + 1 > 0) {
+            x -= 1;
+            err += 1 - 2*x;
+        }
+    }
+}
+
 

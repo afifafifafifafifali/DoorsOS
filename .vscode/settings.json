@@ -30,6 +30,7 @@
         "paging.h": "c",
         "utilities.h": "c",
         "windows.h": "c",
-        "heap.h": "c"
+        "heap.h": "c",
+        "format": "c"
     }
 }

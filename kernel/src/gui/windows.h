@@ -48,5 +48,6 @@ static inline void draw_char(int x, int y, char c, uint32_t fg, uint32_t bg) {
     kprint_color_at(x, y, str, fg, true, bg, true);
 }
 void putPixel(int x, int y, uint32_t color);        
-void draw_rect(int x, int y, int w, int h, uint32_t color);             
+void draw_rect(int x, int y, int w, int h, uint32_t color);     
+void draw_circle(int cx, int cy, int radius, uint32_t color);        
 #endif // DOORS_WINDOWS_H

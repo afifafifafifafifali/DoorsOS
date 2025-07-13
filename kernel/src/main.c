@@ -10,6 +10,7 @@
 #include "interrupts/pit.h"
 #include "fs/detect_ahci.h"
 #include "mem/new/pmm.h"
+#include "gui/colorama.h"
 #include "gui/windows.h"
 #include "interrupts/idt.h"
 #include "fs/pci.h"
@@ -207,9 +208,16 @@ void minimal_bash() {
             kprint_color_at(10, 5, "Hello", 0xFF0000, true, 0x000000, true);
             }
             else if (strEql(result,"rect")){
-                uint32_t blue = 0x0000FF;
+                clear_screen();
 
-                draw_rect(10, 10, 100, 50, blue);
+                draw_rect(10, 10, 100, 50, COLOR_RGB_PINK );
+            }
+            else if(strEql("circ",result)){
+                clear_screen();
+
+                // Draw a blue filled circle at (100, 100) with radius 50
+                draw_circle(100, 100, 50, COLOR_RGB_RED);
+
             }
             // mkfile
             else if (strncmp(result, "mkfile ", 7) == 0) {
@@ -396,7 +404,22 @@ void kmain(void) {
     serial_io_printf("Initializing PMM\n");
     kprint("Welcome to DoorsOS!\n");
     printf("Framebuffer address: %p\n", framebuffer->address);
+    uint8_t r_shift = framebuffer->red_mask_shift;
+uint8_t g_shift = framebuffer->green_mask_shift;
+uint8_t b_shift = framebuffer->blue_mask_shift;
 
+if (r_shift == 16 && g_shift == 8 && b_shift == 0) {
+    printf("Format: RGB (0xRRGGBB)\n");
+    printf("R=%d, G=%d, B=%d\n", r_shift, g_shift, b_shift);
+} else if (r_shift == 0 && g_shift == 8 && b_shift == 16) {
+    printf("Format: BGR\n");
+} else if (r_shift == 24 && g_shift == 16 && b_shift == 8) {
+    printf("Format: RGBA\n");
+} else if (r_shift == 16 && g_shift == 8 && b_shift == 0) {
+    printf("Format: BGRA\n");
+} else {
+    printf("Unknown color format (shifts: R=%d, G=%d, B=%d)\n", r_shift, g_shift, b_shift);
+}
     printf("Initiaiting memory management\n");
     printf("Now testing pmm malloc(k_malloc)\n");
 
