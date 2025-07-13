@@ -9,6 +9,7 @@
 #include "info/cpuinfo.h"
 #include "interrupts/pit.h"
 #include "fs/detect_ahci.h"
+#include "sghsc_logo.h"
 #include "mem/new/pmm.h"
 #include "gui/colorama.h"
 #include "gui/windows.h"
@@ -140,9 +141,44 @@ void clear_screen(void) {
 
 }
 
+#include <stdint.h>
+
+// Define Bangladesh flag colors
+#define COLOR_BD_GREEN  0x006A4E
+#define COLOR_BD_RED    0xF42A41
+
+// Draw Bangladesh flag at (x, y) with width w and height h
+void draw_bangladesh_flag(int x, int y, int w, int h) {
+    // Draw green rectangle background
+    draw_rect(x, y, w, h, COLOR_BD_GREEN);
+
+    // Circle radius: about 3/10 height
+    int radius = (3 * h) / 10;
+
+    // Circle center x: about 9/20 width from left side
+    int cx = x + (9 * w) / 20;
+
+    // Circle center y: middle vertically
+    int cy = y + h / 2;
+
+    // Draw red circle
+    draw_circle(cx, cy, radius, COLOR_BD_RED);
+}
+
+
+void draw_sghsc_logo_exact(int x, int y) {
+    for (int j = 0; j < 64; j++) {
+        for (int i = 0; i < 64; i++) {
+            uint32_t color = sghsc_logo[j][i];
+            putPixel(x + i, y + j, color);
+        }
+    }
+}
+
+
 void minimal_bash() {
     while (1) {
-        kprint("root@testpc# ");
+        kprint("\n\n\nroot@testpc# ");
 
         string_t input = (string_t)malloc(256);
         string_t result = ps2_kbio_read(input, 256);
@@ -219,6 +255,28 @@ void minimal_bash() {
                 draw_circle(100, 100, 50, COLOR_RGB_RED);
 
             }
+            else if(strEql("bd",result)){
+                clear_screen();
+                int flag_x = 50;
+                int flag_y = 50;
+                int flag_w = 300;
+                int flag_h = 200;
+               int text_x = flag_x - 30;
+                int text_y = flag_y- 30;
+                uint32_t fg = COLOR_RGB_RED;
+                uint32_t bg = COLOR_RGB_GREEN;
+                kprint_color_at(text_x, text_y, "\nDoorsOS made in Bangladesh by Afif Ali Saadman.", fg, true, bg, true);
+                printf("Printing my school logo and the Bangladeshi national flag\n");
+                draw_bangladesh_flag(flag_x, flag_y, flag_w, flag_h);
+            }
+            else if (strEql("sghsc", result)) {
+                clear_screen();
+                kprint_color("\n\nThis Operating System (DoorsOS) was made by Afif Ali Saadman, And is under the MIT license. \nMade with love from Bangladesh\n",COLOR_RGB_CYAN,true,COLOR_RGB_BLACK,true);
+                printf("[bitmap_array_framebuffer]Printing my school logo and the Bangladeshi national flag.\n\n\n");
+                draw_sghsc_logo_exact(80, 80);
+                draw_bangladesh_flag(150, 80, 70, 80);
+            }
+
             // mkfile
             else if (strncmp(result, "mkfile ", 7) == 0) {
                 string_t filename = result + 7;
