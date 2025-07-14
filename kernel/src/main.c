@@ -175,27 +175,32 @@ void draw_sghsc_logo_exact(int x, int y) {
     }
 }
 
-
 void minimal_bash() {
     bool ntcp = false;
     while (1) {
-        if(ntcp){
+        if (ntcp) {
             printf("\n\n\n\n");
             ntcp = false;
         }
         kprint("root@testpc# ");
 
         string_t input = (string_t)malloc(256);
-        string_t result = ps2_kbio_read(input, 256);
+        if (!input) {
+            printf("Memory allocation failed for input buffer.\n");
+            return;
+        }
 
+        string_t result = ps2_kbio_read(input, 256);
         if (result != NULL) {
             printf("\n");
-
             // Basic commands
             if (strEql(result, "ata_identify")) {
                 identify();
             } else if (strEql(result, "neofetch")) {
                 print_doors_logo();
+                printf("\n");
+                kprint_color("Welcome to DoorsOS", COLOR_RGB_GREEN, true, COLOR_BLACK, false);
+                printf("\nThis has true color enabled with RGB support, run sghsc to see it's proof.\nYou can find the source code at \"https://github.com/afifafifafifafifali/DoorsOS\"\n");
             } else if (strEql(result, "clear")) {
                 clear_screen();
             } else if (strEql(result, "paging")) {
@@ -208,16 +213,13 @@ void minimal_bash() {
                 free(result);
                 return;
             }
-
             // echo
             else if (strncmp(result, "echo ", 5) == 0) {
                 printf("%s\n", result + 5);
             }
-
             // ls
             else if (strncmp(result, "ls ", 3) == 0) {
                 string_t pathy = result + 3;
-
                 if (strEql(pathy, "/")) {
                     fat32_list_root();
                 } else if (strEql(pathy, " ")) {
@@ -230,59 +232,53 @@ void minimal_bash() {
                     ls(pathy);
                 }
             }
-            
             // cat
             else if (strncmp(result, "cat ", 4) == 0) {
                 string_t filename = result + 4;
-
                 if (strEql(filename, " ")) {
                     printf("Missing 1 required argument: filename\n");
                 } else {
                     cat(filename);
                 }
             }
-            else if(strEql("A", result)){
-               // RGB: red foreground on 4-bit blue background
-            kprint_color("Hello", 0xFF0000, true, 4, false);
-            kprint_color("World", 0xFFFFFF, true, 0x202020, true);
-            kprint_color("Classic ANSI", 11, false, 9, false);
-            kprint_color_at(10, 5, "Hello", 0xFF0000, true, 0x000000, true);
+            else if (strEql("A", result)) {
+                // RGB: red foreground on 4-bit blue background
+                kprint_color("Hello", 0xFF0000, true, 4, false);
+                kprint_color("World", 0xFFFFFF, true, 0x202020, true);
+                kprint_color("Classic ANSI", 11, false, 9, false);
+                kprint_color_at(10, 5, "Hello", 0xFF0000, true, 0x000000, true);
             }
-            else if (strEql(result,"rect")){
+            else if (strEql("rect", result)) {
                 clear_screen();
-
-                draw_rect(10, 10, 100, 50, COLOR_RGB_PINK );
+                draw_rect(10, 10, 100, 50, COLOR_RGB_PINK);
             }
-            else if(strEql("circ",result)){
+            else if (strEql("circ", result)) {
                 clear_screen();
-
                 // Draw a blue filled circle at (100, 100) with radius 50
                 draw_circle(100, 100, 50, COLOR_RGB_RED);
-
             }
-            else if(strEql("bd",result)){
+            else if (strEql("bd", result)) {
                 clear_screen();
                 int flag_x = 50;
                 int flag_y = 50;
                 int flag_w = 300;
                 int flag_h = 200;
-               int text_x = flag_x - 30;
-                int text_y = flag_y- 30;
+                int text_x = flag_x - 30;
+                int text_y = flag_y - 30;
                 uint32_t fg = COLOR_RGB_RED;
                 uint32_t bg = COLOR_RGB_GREEN;
-                kprint_color_at(text_x, text_y, "\nDoorsOS made in Bangladesh by Afif Ali Saadman.", fg, true, bg, true);
+                kprint_color_at(text_x, text_y, "DoorsOS made in Bangladesh by Afif Ali Saadman.", fg, true, bg, true);
                 printf("Printing my school logo and the Bangladeshi national flag\n");
                 draw_bangladesh_flag(flag_x, flag_y, flag_w, flag_h);
             }
             else if (strEql("sghsc", result)) {
                 clear_screen();
-                kprint_color("\n\nThis Operating System (DoorsOS) was made by Afif Ali Saadman, And is under the MIT license. \nMade with love from Bangladesh\n",COLOR_RGB_CYAN,true,COLOR_RGB_BLACK,true);
+                kprint_color("\n\nThis Operating System (DoorsOS) was made by Afif Ali Saadman, And is under the MIT license. \nMade with love from Bangladesh\n", COLOR_RGB_CYAN, true, COLOR_RGB_BLACK, true);
                 printf("[bitmap_array_framebuffer]Printing my school logo and the Bangladeshi national flag.\n\n\n");
                 draw_sghsc_logo_exact(80, 80);
                 draw_bangladesh_flag(150, 80, 70, 80);
                 ntcp = true;
             }
-
             // mkfile
             else if (strncmp(result, "mkfile ", 7) == 0) {
                 string_t filename = result + 7;
@@ -308,18 +304,16 @@ void minimal_bash() {
                         break;
                     }
 
-                    // Remove trailing newline chars if needed (ps2_kbio_read already null-terminates)
-
-                     if (strcmp(entered, ":end") == 0) {
+                    if (strcmp(entered, ":end") == 0) {
                         free(entered);
                         break;
                     }
 
                     size_t line_len = strlen(entered);
                     if (content_len + line_len + 1 >= max_content_size) {
-                         printf("File content too long, stopping input.\n");
-                         free(entered);
-                         break;
+                        printf("File content too long, stopping input.\n");
+                        free(entered);
+                        break;
                     }
 
                     memcpy(content + content_len, entered, line_len);
@@ -341,19 +335,23 @@ void minimal_bash() {
                 free(input);
                 free(result);
             }
-            else if(strEql(result,"")){
-                // Do nothing
+            else if (strEql(result, "")) {
+                // Do nothing for empty input
             }
             // unknown
             else {
                 printf("Invalid Command: %s\n", result);
             }
 
+            free(input);
+            free(result);
         } else {
             kprint("Failed to read input!\n");
+            free(input);
         }
     }
 }
+
 
 // Read cr0 function
 static inline uint64_t read_cr0(void) {
