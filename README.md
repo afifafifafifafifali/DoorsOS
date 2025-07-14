@@ -53,7 +53,7 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 
 See docs/contributions.md
 
-## Making
+## Building the project
 
 Limine
 
@@ -63,4 +63,4 @@ make limine/limine
 
 Make CD: ``` make clean && make run```
 
-For ATA(Reccomended): ```make clean && make run-hdd```
+For ATA(recommended): ```make clean && make run-hdd```
