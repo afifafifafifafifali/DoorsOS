@@ -285,7 +285,7 @@ void minimal_bash() {
                 string_t content = (string_t)malloc(1024);
                 memset(content, 0, 1024);
 
-                string_t entered = ps2_kbio_read(content, 1024);
+                string_t entered = ps2_kbio_read(content, 1023);
 
                 printf("\nCreating file '%s'...\n", filename);
                 if (fat32_write_file(filename, (const uint8_t *)entered, strlen(entered))) {
@@ -295,8 +295,10 @@ void minimal_bash() {
                 }
 
                 free(content);
-            }
+                free(input);
+                free(result);
 
+            }
             // unknown
             else {
                 printf("Invalid Command: %s\n", result);

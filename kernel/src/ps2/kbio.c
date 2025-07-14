@@ -138,6 +138,16 @@ void ps2_kbio_init(void) {
  * 
  * Returns a newly allocated string with input on success, or NULL on failure.
  */
+
+void reset_keyboard_input_state() {
+    inputBuffer = NULL;
+    bufferPos = 0;
+    bufferSize = 0;
+    input_finished = false;
+}
+
+
+
 string_t ps2_kbio_read(string_t buffStr, size_t buffSize) {
     if (!buffStr || buffSize == 0) return NULL;
 
@@ -156,8 +166,7 @@ string_t ps2_kbio_read(string_t buffStr, size_t buffSize) {
         string_copy(result, inputBuffer);
     }
 
-    inputBuffer = NULL;
-    bufferPos = 0;
-    bufferSize = 0;
+    reset_keyboard_input_state();  // <- Reset state cleanly here.
+
     return result;
 }
