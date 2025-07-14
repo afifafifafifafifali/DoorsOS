@@ -177,8 +177,13 @@ void draw_sghsc_logo_exact(int x, int y) {
 
 
 void minimal_bash() {
+    bool ntcp = false;
     while (1) {
-        kprint("\n\n\nroot@testpc# ");
+        if(ntcp){
+            printf("\n\n\n\n");
+            ntcp = false;
+        }
+        kprint("root@testpc# ");
 
         string_t input = (string_t)malloc(256);
         string_t result = ps2_kbio_read(input, 256);
@@ -275,20 +280,58 @@ void minimal_bash() {
                 printf("[bitmap_array_framebuffer]Printing my school logo and the Bangladeshi national flag.\n\n\n");
                 draw_sghsc_logo_exact(80, 80);
                 draw_bangladesh_flag(150, 80, 70, 80);
+                ntcp = true;
             }
 
             // mkfile
             else if (strncmp(result, "mkfile ", 7) == 0) {
                 string_t filename = result + 7;
-                printf("Enter contents for %s:\n> ", filename);
+                printf("Enter contents for %s (type ':end' alone on a line to finish):\n", filename);
 
-                string_t content = (string_t)malloc(1024);
-                memset(content, 0, 1024);
+                size_t max_content_size = 16384;
+                string_t content = (string_t)malloc(max_content_size);
+                if (!content) {
+                    printf("Memory allocation failed.\n");
+                    free(input);
+                    free(result);
+                    break;
+                }
+                memset(content, 0, max_content_size);
 
-                string_t entered = ps2_kbio_read(content, 1023);
+                size_t content_len = 0;
+                while (1) {
+                    printf("> ");
+                    char line[1024];
+                    string_t entered = ps2_kbio_read(line, 1023);
+                    if (!entered) {
+                        printf("Input error.\n");
+                        break;
+                    }
+
+                    // Remove trailing newline chars if needed (ps2_kbio_read already null-terminates)
+
+                     if (strcmp(entered, ":end") == 0) {
+                        free(entered);
+                        break;
+                    }
+
+                    size_t line_len = strlen(entered);
+                    if (content_len + line_len + 1 >= max_content_size) {
+                         printf("File content too long, stopping input.\n");
+                         free(entered);
+                         break;
+                    }
+
+                    memcpy(content + content_len, entered, line_len);
+                    content_len += line_len;
+                    content[content_len++] = '\n';
+                    content[content_len] = '\0';
+
+                    free(entered);
+                }
 
                 printf("\nCreating file '%s'...\n", filename);
-                if (fat32_write_file(filename, (const uint8_t *)entered, strlen(entered))) {
+                if (fat32_write_file(filename, (const uint8_t *)content, content_len)) {
                     printf("File '%s' created successfully.\n", filename);
                 } else {
                     printf("Failed to create file '%s'.\n", filename);
@@ -297,7 +340,9 @@ void minimal_bash() {
                 free(content);
                 free(input);
                 free(result);
-
+            }
+            else if(strEql(result,"")){
+                // Do nothing
             }
             // unknown
             else {
