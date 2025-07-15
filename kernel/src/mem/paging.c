@@ -34,6 +34,16 @@ PageTable* initPML4() {
     serial_io_printf("PML4 virtual address: %p\n", pml4);
 
     return pml4;
+    extern uint8_t kernel_start;
+    extern uint8_t kernel_end;
+    uintptr_t phys_kernel_start = (uintptr_t)&kernel_start - hhdm_request.response->offset;
+    uintptr_t phys_kernel_end   = (uintptr_t)&kernel_end - hhdm_request.response->offset;
+
+    for (uintptr_t addr = phys_kernel_start; addr < phys_kernel_end; addr += 0x1000) {
+        uintptr_t virt = addr + 0x80000000;  // higher-half kernel mapping
+        mapPage((void*)virt, (void*)addr, 0b11); // present + writable
+    }
+
 }
 
 // Set up a page table entry with flags, physical address, and available bits

@@ -9,6 +9,8 @@
 #include "info/cpuinfo.h"
 #include "interrupts/pit.h"
 #include "fs/detect_ahci.h"
+#include "rtl8139/rtl8139.h"
+#include "bootloader.h"
 #include "sghsc_logo.h"
 #include "mem/new/pmm.h"
 #include "gui/colorama.h"
@@ -27,8 +29,7 @@
 #include "mem/paging.h"
 #include "gfx/printf.h"
 #include "fs/ata.h"
-#include "bootloader.h"
-#include "exe/dsc.h"
+
 #include "mem/paging.h"
 #include "mem/heap.h"
 #include <limine.h>

@@ -59,7 +59,9 @@ SECTIONS
         *(.bss .bss.*)
         *(COMMON)
     } :data
-    
+    /* Kernel section boundaries for mapping in paging */
+    kernel_start = ADDR(.text);
+    kernel_end = .;
 
     /* Discard .note.* and .eh_frame* since they may cause issues on some hosts. */
     /DISCARD/ : {
