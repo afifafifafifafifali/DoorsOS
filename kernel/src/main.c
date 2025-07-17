@@ -7,7 +7,7 @@
 #include "interrupts/isr.h"
 #include "fs/ahci.h"
 #include "info/cpuinfo.h"
-#include "interrupts/pit.h"
+#include "interrupts/timer.h"
 #include "fs/detect_ahci.h"
 #include "rtl8139/rtl8139.h"
 #include "bootloader.h"
@@ -504,11 +504,12 @@ void kmain(void) {
     allocator_init();
 
     __asm__ volatile ("cli"); // Just verify, so GDT dont go doggass
-    initiateGDT();
-    remap_pic(0x20, 0x28);
-    enable_interrupts();
-    init_idt();
-    //init_pit(10);// No need of this shit
+    initiateGDT();            // Set up segmentation
+    remap_pic(0x20, 0x28);    // Map IRQ0–15 to INT 32–47
+    init_idt();               // Set IDT gates (like set_idt_gate(32, isr32))
+    timer_init(700000000ULL);
+    enable_interrupts();      // STI
+           // Start the timer IRQs AFTER interrupts enabled and handler registered
 
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
         hcf();
@@ -556,7 +557,9 @@ if (r_shift == 16 && g_shift == 8 && b_shift == 0) {
     allocator_init(); // Bug FIX, after test_page_mapping, this idk why turns off
 
     lspci();
-
+    printf("Testing  sleep 3 second\n");
+    timer_sleep_ms(3000);
+    printf("Sleeped 3 second\n");
     fat32_mount(2048, false);
     ps2_kbio_init();
     kprint("PS/2 Keyboard Driver Initialized!\n");

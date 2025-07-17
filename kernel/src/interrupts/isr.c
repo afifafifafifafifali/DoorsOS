@@ -5,7 +5,7 @@
 #include "../gfx/serial_io.h"
 #include "../ps2/io.h"
 
-void (*interrupt_handlers[256])(interrupt_frame_t* frame);
+
 
 // Default exception messages
 const char* exception_messages[] = {
