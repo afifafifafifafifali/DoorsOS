@@ -2,9 +2,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "new/pmm.h"
+
 typedef struct FreeBlock {
-    struct FreeBlock* next;
     size_t size;
+    struct FreeBlock* next;
 } FreeBlock;
 
 

@@ -30,8 +30,10 @@ struct flanterm_context* initialize_terminal(struct limine_framebuffer* framebuf
 
 
 void kprint(const char* msg) {
+    if (!ft_ctx) return;
     flanterm_write(ft_ctx, msg, strlen(msg));
 }
+
 
 void ftprint(struct flanterm_context* ft_ctx, const char* msg, size_t len) {
     flanterm_write(ft_ctx, msg, len);

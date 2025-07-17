@@ -185,13 +185,13 @@ void minimal_bash() {
         }
         kprint("root@testpc# ");
 
-        string_t input = (string_t)malloc(256);
+        string_t input = (string_t)malloc(2024);
         if (!input) {
             printf("Memory allocation failed for input buffer.\n");
             return;
         }
 
-        string_t result = ps2_kbio_read(input, 256);
+        string_t result = ps2_kbio_read(input, 2024);
         if (result != NULL) {
             printf("\n");
             // Basic commands
@@ -462,11 +462,27 @@ void test_page_mapping() {
     
 }
 
+extern uint8_t kernel_start[];
+extern uint8_t kernel_end[];
+
+void map_kernel() {
+    uintptr_t start = (uintptr_t)kernel_start;
+    uintptr_t end = (uintptr_t)kernel_end;
+    uintptr_t hhdm_offset = hhdm_request.response->offset;
+    for (uintptr_t addr = start; addr < end; addr += 0x1000) {
+        mapPage((void*)addr, (void*)(addr - hhdm_offset), 0x03);
+    }
+}
+
 // this is the KFC Kernel's entry point.
 void kmain(void) {
     enable_sse(); // Must be at this location
+    //map_kernel();
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
-    struct flanterm_context *ft_ctx = initialize_terminal(framebuffer);
+      // no local variable
+    initialize_terminal(framebuffer);
+
+    //struct flanterm_context *ft_ctx = initialize_terminal(framebuffer);
 
     initPML4();
     check_paging();
@@ -480,20 +496,19 @@ void kmain(void) {
         printf("Limine memmap or HHDM response is NULL. Halting.\n");
         for (;;) __asm__("hlt");
     }
-
+    
+    
     printf("Initializing PMM and heap\n");
     printf("Initing PMM\n");
     setMemoryMap(4);
     allocator_init();
-
-    // Uncomment to test SSE functionality.
-    // test_sse();
 
     __asm__ volatile ("cli"); // Just verify, so GDT dont go doggass
     initiateGDT();
     remap_pic(0x20, 0x28);
     enable_interrupts();
     init_idt();
+    //init_pit(10);// No need of this shit
 
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
         hcf();
@@ -540,17 +555,12 @@ if (r_shift == 16 && g_shift == 8 && b_shift == 0) {
     printf("Stressing the allocator_malloc()\n");
     allocator_init(); // Bug FIX, after test_page_mapping, this idk why turns off
 
-    for (int i = 0; i < 10000; ++i) {
-        void* x = allocator_malloc(rand() % 128 + 8);
-        allocator_free(x);
-    }
-
     lspci();
 
     fat32_mount(2048, false);
     ps2_kbio_init();
     kprint("PS/2 Keyboard Driver Initialized!\n");
-
+    
     minimal_bash();
     hcf();
 }

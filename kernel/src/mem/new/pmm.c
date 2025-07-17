@@ -67,8 +67,14 @@ void printMemoryMaps() {
 // ------------------------------
 void setMemoryMap(uint8_t selection) {
     memmap_info = memmap_request.response;
+    if (selection >= memmap_info->entry_count) {
+        serial_io_printf("Invalid memmap selection %d\n", selection);
+        memmap = NULL;
+        return;
+    }
     memmap = memmap_info->entries[selection];
 }
+
 
 void* getMemoryMapBase() {
     return (void*) memmap->base;
