@@ -5,6 +5,7 @@
 #include "../gfx/term.h"
 #include "../interrupts/isr.h"
 #include "../gfx/printf.h"
+#include "../interrupts/multitasking.h"
 #include "io.h"
 
 #define string_copy strcpy

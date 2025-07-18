@@ -6,6 +6,7 @@
 #include "flanterm/src/flanterm_backends/fb.h"
 #include "interrupts/isr.h"
 #include "fs/ahci.h"
+#include "interrupts/multitasking.h"
 #include "info/cpuinfo.h"
 #include "interrupts/timer.h"
 #include "fs/detect_ahci.h"
@@ -350,6 +351,7 @@ void minimal_bash() {
             kprint("Failed to read input!\n");
             free(input);
         }
+ 
     }
 }
 
@@ -412,13 +414,7 @@ void test_sse() {
     kprint(buf);
     kprint("\n");
 }
-// mouse callback which barely doesn't work
-void my_mouse_callback(MouseEvent* ev) {
-    if (ev->type == MOUSE_EVENT_MOVE) {
-        // Draw cursor at ev->x, ev->y
-        printf("\033[%d;%dHX", ev->y + 1, ev->x + 1);
-    }
-}
+
 // Test page mapping
 void test_page_mapping() {
     serial_io_printf("HHDM variable is being setted\n");
@@ -460,6 +456,33 @@ void test_page_mapping() {
     }
 
     
+}
+
+void task_a() {
+    for (int count = 0; count < 13; count++) {
+        printf("[TASK A] Hello from Task A! Task ID %d\n", count);
+        yield();
+    }
+    // After finishing, kill self to free task slot
+    task_kill(multitasking_get_current_task());
+
+    // Halt here — should never return, but just in case
+    while (1) {
+        yield();
+    }
+}
+
+void task_b() {
+    for (int count = 0; count < 13; count++) {
+        printf("[TASK B] Hello from Task B! Task ID %d\n", count);
+        yield();
+    }
+    // After finishing, kill self
+    task_kill(multitasking_get_current_task());
+
+    while (1) {
+        yield();
+    }
 }
 
 extern uint8_t kernel_start[];
@@ -509,7 +532,7 @@ void kmain(void) {
     init_idt();               // Set IDT gates (like set_idt_gate(32, isr32))
     timer_init(700000000ULL);
     enable_interrupts();      // STI
-           // Start the timer IRQs AFTER interrupts enabled and handler registered
+    multitasking_init();
 
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
         hcf();
@@ -520,26 +543,9 @@ void kmain(void) {
     }
 
     kprint("DoorsOS Kernel Booted!\n");
-    printf("Initiating PMM\n");
-    serial_io_printf("Initializing PMM\n");
     kprint("Welcome to DoorsOS!\n");
     printf("Framebuffer address: %p\n", framebuffer->address);
-    uint8_t r_shift = framebuffer->red_mask_shift;
-uint8_t g_shift = framebuffer->green_mask_shift;
-uint8_t b_shift = framebuffer->blue_mask_shift;
-
-if (r_shift == 16 && g_shift == 8 && b_shift == 0) {
-    printf("Format: RGB (0xRRGGBB)\n");
-    printf("R=%d, G=%d, B=%d\n", r_shift, g_shift, b_shift);
-} else if (r_shift == 0 && g_shift == 8 && b_shift == 16) {
-    printf("Format: BGR\n");
-} else if (r_shift == 24 && g_shift == 16 && b_shift == 8) {
-    printf("Format: RGBA\n");
-} else if (r_shift == 16 && g_shift == 8 && b_shift == 0) {
-    printf("Format: BGRA\n");
-} else {
-    printf("Unknown color format (shifts: R=%d, G=%d, B=%d)\n", r_shift, g_shift, b_shift);
-}
+ 
     printf("Initiaiting memory management\n");
     printf("Now testing pmm malloc(k_malloc)\n");
 
@@ -557,13 +563,28 @@ if (r_shift == 16 && g_shift == 8 && b_shift == 0) {
     allocator_init(); // Bug FIX, after test_page_mapping, this idk why turns off
 
     lspci();
-    printf("Testing  sleep 3 second\n");
-    timer_sleep_ms(3000);
-    printf("Sleeped 3 second\n");
     fat32_mount(2048, false);
+    clear_screen();
+    printf("Now testing multitasking\n\n\n");
+    task_create(task_a);
+    task_create(task_b);
+
+    yield(); // start first task (no return)
+    printf("Clearing Screen In 3 seconds\n");
+    timer_sleep_ms(2000);
+    printf("1 ");
+    timer_sleep_ms(2000);
+    printf("2 ");
+    timer_sleep_ms(1000);
+    printf("3 \n");
+    timer_sleep_ms(780);
+    clear_screen();
     ps2_kbio_init();
-    kprint("PS/2 Keyboard Driver Initialized!\n");
     
+    print_doors_logo();
+    printf("\n");
+    kprint_color("Welcome to DoorsOS", COLOR_RGB_GREEN, true, COLOR_BLACK, false);
+    printf("\nThis has true color enabled with RGB support, run sghsc to see it's proof.\nYou can find the source code at \"https://github.com/afifafifafifafifali/DoorsOS\"\n");
     minimal_bash();
     hcf();
 }

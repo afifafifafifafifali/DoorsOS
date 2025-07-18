@@ -31,6 +31,8 @@
         "utilities.h": "c",
         "windows.h": "c",
         "heap.h": "c",
-        "format": "c"
+        "format": "c",
+        "bitset": "c",
+        "algorithm": "c"
     }
 }
