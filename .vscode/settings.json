@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.embeddedhtml": "html",
         "cstdint": "cpp",
         "stdbool.h": "c",
         "term.h": "c",
@@ -33,6 +34,7 @@
         "heap.h": "c",
         "format": "c",
         "bitset": "c",
-        "algorithm": "c"
+        "algorithm": "c",
+        "pci.h": "c"
     }
 }

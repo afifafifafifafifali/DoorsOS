@@ -7,6 +7,7 @@
 #include "interrupts/isr.h"
 #include "fs/ahci.h"
 #include "interrupts/multitasking.h"
+#include "snake.h"
 #include "info/cpuinfo.h"
 #include "interrupts/timer.h"
 #include "fs/detect_ahci.h"
@@ -177,6 +178,7 @@ void draw_sghsc_logo_exact(int x, int y) {
     }
 }
 
+
 void minimal_bash() {
     bool ntcp = false;
     while (1) {
@@ -337,6 +339,11 @@ void minimal_bash() {
                 free(input);
                 free(result);
             }
+            else if(strEql("snake",result)){
+                clear_screen();
+                snake_run();
+                clear_screen();
+            }
             else if (strEql(result, "")) {
                 // Do nothing for empty input
             }
@@ -354,8 +361,6 @@ void minimal_bash() {
  
     }
 }
-
-
 // Read cr0 function
 static inline uint64_t read_cr0(void) {
     uint64_t val;
@@ -579,6 +584,8 @@ void kmain(void) {
     printf("3 \n");
     timer_sleep_ms(780);
     clear_screen();
+    //printf("Initiating RTL8139\n");
+    //rtl8139_init();
     ps2_kbio_init();
     
     print_doors_logo();
