@@ -587,6 +587,7 @@ void kmain(void) {
     //printf("Initiating RTL8139\n");
     //rtl8139_init();
     ps2_kbio_init();
+    //tung tung tung shahur
     
     print_doors_logo();
     printf("\n");
