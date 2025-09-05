@@ -35,6 +35,8 @@
         "format": "c",
         "bitset": "c",
         "algorithm": "c",
-        "pci.h": "c"
+        "pci.h": "c",
+        "*.def": "c",
+        "cstdio": "c"
     }
 }

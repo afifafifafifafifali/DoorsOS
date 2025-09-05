@@ -8,6 +8,7 @@
 #include "fs/ahci.h"
 #include "interrupts/multitasking.h"
 #include "snake.h"
+#include "datandtime.h"
 #include "info/cpuinfo.h"
 #include "interrupts/timer.h"
 #include "fs/detect_ahci.h"
@@ -502,6 +503,8 @@ void map_kernel() {
     }
 }
 
+
+
 // this is the KFC Kernel's entry point.
 void kmain(void) {
     enable_sse(); // Must be at this location
@@ -584,11 +587,34 @@ void kmain(void) {
     printf("3 \n");
     timer_sleep_ms(780);
     clear_screen();
-    //printf("Initiating RTL8139\n");
-    //rtl8139_init();
-    ps2_kbio_init();
+    printf("1 Last test,the ahci\n");
+    //ahci_init();
+    #define HHDM_BASE   0xFFFF800000000000ULL
+#define AHCI_PHYS   0xFEBD5000ULL
+#define AHCI_MAP_SIZE 0x1000
+
+// Map AHCI BAR5
+for (uintptr_t addr = 0; addr < AHCI_MAP_SIZE; addr += 0x1000) {
+    mapPage((void*)(HHDM_BASE + addr),
+            (void*)(AHCI_PHYS + addr),
+            PAGE_PRESENT | PAGE_WRITE);
+}
+
+// Access via virtual address
+HBA_MEM* host = (HBA_MEM*)HHDM_BASE;
+probePort(host);
+    printf("AHCI test complete\n");
+
+serial_io_printf("Address of port 0: %p\n", (void*)&host->ports[0]);
+serial_io_printf("Printing Date And time\n");
+DateTime dt = read_rtc_datetime();
+// Print the date and time
+serial_io_printf("Current Date and Time: %04d-%02d-%02d %02d:%02d:%02d\n",
+       dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+
+allocator_init();
     //tung tung tung shahur
-    
+    ps2_kbio_init();
     print_doors_logo();
     printf("\n");
     kprint_color("Welcome to DoorsOS", COLOR_RGB_GREEN, true, COLOR_BLACK, false);
