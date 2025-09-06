@@ -12,10 +12,7 @@ static uint8_t* heap_start = NULL;
 static uint8_t* heap_end = NULL;
 static FreeBlock* free_list = NULL;
 
-// Converts physical address to kernel virtual address using Limine HHDM base
-static inline void* phys_to_virt(uint64_t phys_addr) {
-    return (void*)(hhdm_request.response->offset + phys_addr);
-}
+
 
 void allocator_init(void) {
     if (memmap_request.response == NULL || hhdm_request.response == NULL) {

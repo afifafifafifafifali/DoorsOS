@@ -122,6 +122,8 @@ static void hcf(void) {
     }
 }
 
+#define AHCI_MAP_SIZE 0x1000
+
 // Print doors ASCII art
 void print_doors_logo() {
     printf("________                             ________    _________\n");
@@ -504,6 +506,103 @@ void map_kernel() {
 }
 
 
+HBA_MEM* init_ahci_safely() {
+    
+
+    HBA_MEM* host_phys = check_ahci_controller();   // returns physical ABAR (e.g. 0xfebd1000)
+    uint64_t abar_phys = (uint64_t)host_phys;
+
+    for (uintptr_t addr = 0; addr < AHCI_MAP_SIZE; addr += 0x1000) {
+        mapPage((void*)(HHDM_BASE + addr),
+                (void*)(abar_phys + addr),
+                PAGE_PRESENT | PAGE_WRITE);
+    }
+
+    HBA_MEM* host = (HBA_MEM*)HHDM_BASE;
+
+    // use AHCI normally
+    probePort(host);
+    return host;
+}
+
+// Allocate physically contiguous and 512B-aligned memory
+void* alloc_sector_buffer(size_t sectors) {
+    size_t bytes = sectors * 512;
+    size_t alloc_size = ((bytes + 511) / 512) * 512; // round up to 512B
+    void* buf = k_malloc(alloc_size + 511);          // extra for alignment
+    uintptr_t addr = (uintptr_t)buf;
+    uintptr_t aligned = (addr + 511) & ~((uintptr_t)511);
+    return (void*)aligned;
+}
+
+void ahci_test_rw(HBA_PORT* port) {
+    const char* text = "Afif has acheived ahci";
+    size_t len = strlen(text);
+
+    // Allocate 1 sector buffers with proper 512B alignment
+    uint16_t* write_buf = alloc_sector_buffer(1);
+    uint16_t* read_buf  = alloc_sector_buffer(1);
+
+    if (!write_buf || !read_buf) {
+        serial_io_printf("AHCI TEST: Failed to allocate buffers\n");
+        return;
+    }
+
+    memset(write_buf, 0, 512);
+    memset(read_buf, 0, 512);
+
+    // Copy text into write buffer
+    memcpy(write_buf, text, len);
+
+    uint32_t lba = 0x100; // Pick some test LBA, far from filesystem area
+    uint32_t count = 1;   // 1 sector
+
+    serial_io_printf("AHCI TEST: Writing to LBA %u\n", lba);
+    if (!ahci_write(port, lba, 0, count, write_buf)) {
+        serial_io_printf("Write failed!\n");
+        return;
+    }
+
+    serial_io_printf("AHCI TEST: Reading back from LBA %u\n", lba);
+    if (!ahci_read(port, lba, 0, count, read_buf)) {
+        serial_io_printf("Read failed!\n");
+        return;
+    }
+
+    serial_io_printf("AHCI TEST: Data read: \"%s\"\n", (char*)read_buf);
+}
+
+void ahci_test_all(HBA_MEM* host) {
+    uint32_t pi = host->pi;  // ports implemented by HBA
+
+    for (int i = 0; i < 32; i++) {
+        if (pi & (1 << i)) {
+            int type = checkType(&host->ports[i]);
+            switch (type) {
+                case AHCI_DEV_SATA:
+                    serial_io_printf("AHCI: SATA device on port %d\n", i);
+                    break;
+                case AHCI_DEV_SATAPI:
+                    serial_io_printf("AHCI: SATAPI device on port %d\n", i);
+                    break;
+                case AHCI_DEV_SEMB:
+                    serial_io_printf("AHCI: SEMB device on port %d\n", i);
+                    break;
+                case AHCI_DEV_PM:
+                    serial_io_printf("AHCI: Port Multiplier on port %d\n", i);
+                    break;
+                default:
+                    serial_io_printf("AHCI: Unknown/empty device on port %d\n", i);
+                    continue;
+            }
+
+            portRebase(&host->ports[i], i);
+            ahci_test_rw(&host->ports[i]);
+        }
+    }
+}
+
+
 
 // this is the KFC Kernel's entry point.
 void kmain(void) {
@@ -570,7 +669,7 @@ void kmain(void) {
     printf("Stressing the allocator_malloc()\n");
     allocator_init(); // Bug FIX, after test_page_mapping, this idk why turns off
 
-    lspci();
+    //lspci();
     fat32_mount(2048, false);
     clear_screen();
     printf("Now testing multitasking\n\n\n");
@@ -589,21 +688,10 @@ void kmain(void) {
     clear_screen();
     printf("1 Last test,the ahci\n");
     //ahci_init();
-    #define HHDM_BASE   0xFFFF800000000000ULL
-#define AHCI_PHYS   0xFEBD5000ULL
-#define AHCI_MAP_SIZE 0x1000
+    HBA_MEM* host = init_ahci_safely();
+    ahci_alloc_buffers();
+    printf("AHCI initialization test complete\n");
 
-// Map AHCI BAR5
-for (uintptr_t addr = 0; addr < AHCI_MAP_SIZE; addr += 0x1000) {
-    mapPage((void*)(HHDM_BASE + addr),
-            (void*)(AHCI_PHYS + addr),
-            PAGE_PRESENT | PAGE_WRITE);
-}
-
-// Access via virtual address
-HBA_MEM* host = (HBA_MEM*)HHDM_BASE;
-probePort(host);
-    printf("AHCI test complete\n");
 
 serial_io_printf("Address of port 0: %p\n", (void*)&host->ports[0]);
 serial_io_printf("Printing Date And time\n");

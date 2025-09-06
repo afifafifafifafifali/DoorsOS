@@ -83,6 +83,14 @@ void* getMemoryMapBase() {
 uint64_t getMemoryMapLength() {
     return memmap->length;
 }
+void* phys_to_virt(uint64_t phys_addr) {
+    return (void*)(hhdm_request.response->offset + phys_addr);
+}
+uint64_t virt_to_phys(void* virt_addr) {
+    // HHDM offset: virtual = physical + offset
+    // physical = virtual - offset
+    return (uint64_t)virt_addr - HHDM_BASE;
+}
 
 // ------------------------------
 // Buddy-like Allocator (Recursive)
@@ -114,9 +122,7 @@ static void* b_malloc(uint64_t* base, size_t length, size_t size) {
     return NULL;
 }
 
-static inline void* phys_to_virt(uint64_t phys_addr) {
-    return (void*)(hhdm_request.response->offset + phys_addr);
-}
+
 // ------------------------------
 // Kernel Memory Allocation API
 // ------------------------------

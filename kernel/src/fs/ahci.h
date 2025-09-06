@@ -6,7 +6,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-
+#include "bootloader.h"
+#include "mem/new/pmm.h"
 #define	SATA_SIG_ATA	0x00000101	// SATA drive
 #define	SATA_SIG_ATAPI	0xEB140101	// SATAPI drive
 #define	SATA_SIG_SEMB	0xC33C0101	// Enclosure management bridge
@@ -32,6 +33,9 @@
 #define HBA_PxCMD_FR    0x4000
 #define HBA_PxCMD_CR    0x8000
 #define HBA_PxIS_TFES   (1 << 30)       /* TFES - Task File Error Status */
+
+extern volatile struct limine_memmap_request memmap_request;
+extern volatile struct limine_hhdm_request    hhdm_request;
 
 typedef enum
 {
@@ -297,6 +301,7 @@ typedef struct HBA_CMD_TBL
 	HBA_PRDT_ENTRY prdt_entry[1];	// Physical region descriptor table entries, 0 ~ 65535
 } HBA_CMD_TBL;
 
+int checkType(HBA_PORT* port);
 void probePort(HBA_MEM* abar);
 void startCMD(HBA_PORT* port);
 void stopCMD(HBA_PORT* port);
@@ -304,5 +309,22 @@ void portRebase(HBA_PORT* port, int portno);
 int findCMDSlot(HBA_PORT* port, size_t cmd_slots);
 bool ahci_read(HBA_PORT* port, uint32_t start_l, uint32_t start_h, uint32_t count, uint16_t* buf);
 bool ahci_write(HBA_PORT* port, uint32_t start_l, uint32_t start_h, uint32_t count, uint16_t* buf);
- 
+
+#define AHCI_CMD_BUF_SIZE  (1024 * 1024) // 1 MB for CLB/FIS/CTB
+
+static void* ahci_cmd_buf_virt = NULL;
+static uint64_t ahci_cmd_buf_phys = 0;
+
+static inline void ahci_alloc_buffers() {
+    // allocate from your PMM
+    ahci_cmd_buf_virt = k_malloc(AHCI_CMD_BUF_SIZE);
+    if (!ahci_cmd_buf_virt) {
+        serial_io_printf("AHCI: Failed to allocate buffers!\n");
+        return;
+    }
+    ahci_cmd_buf_phys = virt_to_phys(ahci_cmd_buf_virt);
+    serial_io_printf("AHCI: buffers at virt=%p phys=%llx\n", ahci_cmd_buf_virt, ahci_cmd_buf_phys);
+}
+
+
 #endif
