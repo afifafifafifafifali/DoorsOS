@@ -525,14 +525,33 @@ HBA_MEM* init_ahci_safely() {
     return host;
 }
 
-// Allocate physically contiguous and 512B-aligned memory
-void* alloc_sector_buffer(size_t sectors) {
-    size_t bytes = sectors * 512;
-    size_t alloc_size = ((bytes + 511) / 512) * 512; // round up to 512B
-    void* buf = k_malloc(alloc_size + 511);          // extra for alignment
-    uintptr_t addr = (uintptr_t)buf;
-    uintptr_t aligned = (addr + 511) & ~((uintptr_t)511);
-    return (void*)aligned;
+typedef struct {
+    void *virt;         // kernel virtual
+    uintptr_t phys;     // physical address (not HHDM'd)
+    size_t size;
+} dma_buffer_t;
+
+// Use your page allocator/PMM that returns a physical page number or phys addr.
+// This example assumes you have pmm_alloc_pages(npages) -> physical_address,
+// and a function hhdm_to_virt(phys) -> virtual address in higher-half (HHDM).
+dma_buffer_t alloc_dma_pages(size_t sectors) {
+    dma_buffer_t db = {0};
+    const size_t bytes = sectors * 512;
+    // Round up to whole pages:
+    size_t npages = (bytes + 0xFFF) >> 12;
+    uintptr_t phys = k_malloc(npages); // implement/replace with your pmm
+    if (!phys) return db;
+    void *virt = (void*)(phys + hhdm_request.response->offset); // HHDM mapping
+    db.virt = virt;
+    db.phys = phys;
+    db.size = npages << 12;
+    // zero:
+    memset(db.virt, 0, db.size);
+    return db;
+}
+uint16_t* alloc_sector_buffer(size_t sectors) {
+    dma_buffer_t db = alloc_dma_pages(sectors);
+    return (uint16_t*)db.virt; // caller can cast to whatever type
 }
 
 void ahci_test_rw(HBA_PORT* port) {
@@ -597,7 +616,12 @@ void ahci_test_all(HBA_MEM* host) {
             }
 
             portRebase(&host->ports[i], i);
-            ahci_test_rw(&host->ports[i]);
+            uint16_t* read_buf= alloc_sector_buffer(4096);
+            ahci_read(&host->ports[i], 0x100, 0, 1, read_buf);
+            serial_io_printf("First 16 bytes of LBA 0x100: ");
+            for (int j = 0; j < 16; j++) {
+                serial_io_printf("%02X ", ((uint8_t*)read_buf)[j]);
+            }
         }
     }
 }
@@ -700,6 +724,10 @@ DateTime dt = read_rtc_datetime();
 serial_io_printf("Current Date and Time: %04d-%02d-%02d %02d:%02d:%02d\n",
        dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
 
+
+       serial_io_printf("Testing AHCI READ on ports\n");
+       ahci_test_all(host) ;
+       
 allocator_init();
     //tung tung tung shahur
     ps2_kbio_init();

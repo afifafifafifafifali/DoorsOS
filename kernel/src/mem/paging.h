@@ -48,5 +48,6 @@ void* getPhysicalAddress(void* virtual_address);
 PageTable* initPML4(void); 
 void mapPage(void* virtual_address, void* physical_address, uint8_t flags);
 uint64_t readCR3(void);
+// add to mem/new/pmm.h (or mem/pmm.h if that's included by other files)
 
 #endif
