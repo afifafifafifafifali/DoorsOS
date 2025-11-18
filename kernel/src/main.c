@@ -531,100 +531,6 @@ typedef struct {
     size_t size;
 } dma_buffer_t;
 
-// Use your page allocator/PMM that returns a physical page number or phys addr.
-// This example assumes you have pmm_alloc_pages(npages) -> physical_address,
-// and a function hhdm_to_virt(phys) -> virtual address in higher-half (HHDM).
-dma_buffer_t alloc_dma_pages(size_t sectors) {
-    dma_buffer_t db = {0};
-    const size_t bytes = sectors * 512;
-    // Round up to whole pages:
-    size_t npages = (bytes + 0xFFF) >> 12;
-    uintptr_t phys = k_malloc(npages); // implement/replace with your pmm
-    if (!phys) return db;
-    void *virt = (void*)(phys + hhdm_request.response->offset); // HHDM mapping
-    db.virt = virt;
-    db.phys = phys;
-    db.size = npages << 12;
-    // zero:
-    memset(db.virt, 0, db.size);
-    return db;
-}
-uint16_t* alloc_sector_buffer(size_t sectors) {
-    dma_buffer_t db = alloc_dma_pages(sectors);
-    return (uint16_t*)db.virt; // caller can cast to whatever type
-}
-
-void ahci_test_rw(HBA_PORT* port) {
-    const char* text = "Afif has acheived ahci";
-    size_t len = strlen(text);
-
-    // Allocate 1 sector buffers with proper 512B alignment
-    uint16_t* write_buf = alloc_sector_buffer(1);
-    uint16_t* read_buf  = alloc_sector_buffer(1);
-
-    if (!write_buf || !read_buf) {
-        serial_io_printf("AHCI TEST: Failed to allocate buffers\n");
-        return;
-    }
-
-    memset(write_buf, 0, 512);
-    memset(read_buf, 0, 512);
-
-    // Copy text into write buffer
-    memcpy(write_buf, text, len);
-
-    uint32_t lba = 0x100; // Pick some test LBA, far from filesystem area
-    uint32_t count = 1;   // 1 sector
-
-    serial_io_printf("AHCI TEST: Writing to LBA %u\n", lba);
-    if (!ahci_write(port, lba, 0, count, write_buf)) {
-        serial_io_printf("Write failed!\n");
-        return;
-    }
-
-    serial_io_printf("AHCI TEST: Reading back from LBA %u\n", lba);
-    if (!ahci_read(port, lba, 0, count, read_buf)) {
-        serial_io_printf("Read failed!\n");
-        return;
-    }
-
-    serial_io_printf("AHCI TEST: Data read: \"%s\"\n", (char*)read_buf);
-}
-
-void ahci_test_all(HBA_MEM* host) {
-    uint32_t pi = host->pi;  // ports implemented by HBA
-
-    for (int i = 0; i < 32; i++) {
-        if (pi & (1 << i)) {
-            int type = checkType(&host->ports[i]);
-            switch (type) {
-                case AHCI_DEV_SATA:
-                    serial_io_printf("AHCI: SATA device on port %d\n", i);
-                    break;
-                case AHCI_DEV_SATAPI:
-                    serial_io_printf("AHCI: SATAPI device on port %d\n", i);
-                    break;
-                case AHCI_DEV_SEMB:
-                    serial_io_printf("AHCI: SEMB device on port %d\n", i);
-                    break;
-                case AHCI_DEV_PM:
-                    serial_io_printf("AHCI: Port Multiplier on port %d\n", i);
-                    break;
-                default:
-                    serial_io_printf("AHCI: Unknown/empty device on port %d\n", i);
-                    continue;
-            }
-
-            portRebase(&host->ports[i], i);
-            uint16_t* read_buf= alloc_sector_buffer(4096);
-            ahci_read(&host->ports[i], 0x100, 0, 1, read_buf);
-            serial_io_printf("First 16 bytes of LBA 0x100: ");
-            for (int j = 0; j < 16; j++) {
-                serial_io_printf("%02X ", ((uint8_t*)read_buf)[j]);
-            }
-        }
-    }
-}
 
 
 
@@ -654,14 +560,14 @@ void kmain(void) {
     
     printf("Initializing PMM and heap\n");
     printf("Initing PMM\n");
-    setMemoryMap(4);
+    setMemoryMap(4); // After a long DEBUGG PUSS
     allocator_init();
 
     __asm__ volatile ("cli"); // Just verify, so GDT dont go doggass
     initiateGDT();            // Set up segmentation
     remap_pic(0x20, 0x28);    // Map IRQ0–15 to INT 32–47
     init_idt();               // Set IDT gates (like set_idt_gate(32, isr32))
-    timer_init(700000000ULL);
+    timer_init(600000000ULL);
     enable_interrupts();      // STI
     multitasking_init();
 
@@ -724,9 +630,6 @@ DateTime dt = read_rtc_datetime();
 serial_io_printf("Current Date and Time: %04d-%02d-%02d %02d:%02d:%02d\n",
        dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
 
-
-       serial_io_printf("Testing AHCI READ on ports\n");
-       ahci_test_all(host) ;
        
 allocator_init();
     //tung tung tung shahur
