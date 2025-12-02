@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "../mem/heap.h"
 
 size_t strlen(const char *s) {
     const char *p = s;
@@ -108,4 +109,44 @@ bool strEql(string_t str1, string_t str2) {
     }
 
     return *str1 == *str2; // Both strings must reach the null terminator at the same time.
+}
+
+char *strchr(const char *s, int c) {
+    while (*s) {
+        if (*s == c) {
+            return (char *)s;
+        }
+        s++;
+    }
+    return (c == '\0') ? (char *)s : NULL;
+}
+
+char *strdup(const char *s) {
+    if (!s) return NULL;
+    
+    size_t len = strlen(s) + 1;
+    char *dup = (char *)malloc(len);
+    if (!dup) return NULL;
+    
+    memcpy(dup, s, len);
+    return dup;
+}
+
+char k_toupper(char c) {
+    if (c >= 'a' && c <= 'z') return c - 32;
+    return c;
+}
+
+char k_tolower(char c) {
+    if (c >= 'A' && c <= 'Z') return c + 32;
+    return c;
+}
+
+char* strrchr(const char* s, int c) {
+    const char* last = NULL;
+    while (*s) {
+        if (*s == (char)c) last = s;
+        s++;
+    }
+    return (char*)last;
 }

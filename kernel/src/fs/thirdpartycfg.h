@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 
 // My third-party code was added to the DoorsOS kernel.
 #include <stdint.h>
@@ -55,3 +55,4 @@ static inline char* itos(uint32_t myint, char buffer[], int bufflen) {
 
     return &buffer[i + 1];
 }
+*/

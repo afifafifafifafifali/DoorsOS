@@ -24,19 +24,19 @@
 #define PAGE_NO_EXECUTE     (1ULL << 63)    // No-execute (if supported)
 
 typedef struct PageEntry {
-    uint8_t present : 1;
-    uint8_t writable : 1;
-    uint8_t user_accessible : 1;
-    uint8_t write_through_caching : 1;
-    uint8_t disable_cache : 1;
-    uint8_t accessed : 1;
-    uint8_t dirty : 1;
-    uint8_t null : 1;
-    uint8_t global : 1;
-    uint8_t avl1 : 3;
-    uintptr_t physical_address : 40;
-    uint16_t avl2 : 11;
-    uint8_t no_execute : 1;
+    uint64_t present : 1;
+    uint64_t writable : 1;
+    uint64_t user_accessible : 1;
+    uint64_t write_through_caching : 1;
+    uint64_t disable_cache : 1;
+    uint64_t accessed : 1;
+    uint64_t dirty : 1;
+    uint64_t null : 1;
+    uint64_t global : 1;
+    uint64_t avl1 : 3;
+    uint64_t physical_address : 40;
+    uint64_t avl2 : 11;
+    uint64_t no_execute : 1;
 } PageEntry;
 
 typedef struct PageTable {

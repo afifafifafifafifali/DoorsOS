@@ -307,24 +307,9 @@ void startCMD(HBA_PORT* port);
 void stopCMD(HBA_PORT* port);
 void portRebase(HBA_PORT* port, int portno);
 int findCMDSlot(HBA_PORT* port, size_t cmd_slots);
-bool ahci_read(HBA_PORT* port, uint32_t start_l, uint32_t start_h, uint32_t count, uint16_t* buf);
-bool ahci_write(HBA_PORT* port, uint32_t start_l, uint32_t start_h, uint32_t count, uint16_t* buf);
-
-#define AHCI_CMD_BUF_SIZE  (1024 * 1024) // 1 MB for CLB/FIS/CTB
-
-static void* ahci_cmd_buf_virt = NULL;
-static uint64_t ahci_cmd_buf_phys = 0;
-
-static inline void ahci_alloc_buffers() {
-    // allocate from your PMM
-    ahci_cmd_buf_virt = k_malloc(AHCI_CMD_BUF_SIZE);
-    if (!ahci_cmd_buf_virt) {
-        serial_io_printf("AHCI: Failed to allocate buffers!\n");
-        return;
-    }
-    ahci_cmd_buf_phys = virt_to_phys(ahci_cmd_buf_virt);
-    serial_io_printf("AHCI: buffers at virt=%p phys=%llx\n", ahci_cmd_buf_virt, ahci_cmd_buf_phys);
-}
-
+bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf);
+bool ahci_write_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf);
+int ahci_init(void);
+void ahci_test(void);
 
 #endif

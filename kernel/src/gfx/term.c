@@ -45,3 +45,7 @@ void _putchar(char character) { // This func is shit, i dont wanna use it
     msg[1] = '\0';
     flanterm_write(ft_ctx, msg, 2);
 }
+void clear_screen(void) {
+    // ANSI escape sequence to clear screen and move cursor to top-left
+    flanterm_write(ft_ctx, "\033[2J\033[H", 7);
+}

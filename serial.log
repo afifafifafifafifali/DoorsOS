@@ -1,0 +1,5 @@
+=== AHCI R/W Test ===
+=== AHCI Init ===
+AHCI ABAR: 0xfebd1000
+Mapping phys 0xfebd1000 to virt 0xffff8000febd1000
+Page Fault at address: 0x800
