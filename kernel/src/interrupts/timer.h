@@ -10,3 +10,4 @@ void timer_init(uint64_t cpu_hz);
 void timer_sleep_ms(uint64_t ms);
 
 #endif
+uint64_t timer_get_ticks(void);

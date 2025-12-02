@@ -79,6 +79,8 @@ run-hdd-ahci: $(IMAGE_NAME).hdd
 		-drive id=disk,file=$(IMAGE_NAME).hdd,format=raw,if=none \
 		-device ahci,id=ahci \
 		-device ide-hd,drive=disk,bus=ahci.0 \
+		-netdev user,id=n0 \
+		-device rtl8139,netdev=n0 \
 		-serial stdio \
 		-m 1G \
 		$(QEMUFLAGS)

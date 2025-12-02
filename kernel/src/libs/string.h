@@ -23,5 +23,9 @@ char *strcat(char *restrict dest, const char *restrict src);
 char *strncat(char *restrict dest, const char *restrict src, size_t n);
 int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, size_t n);
+char *strchr(const char *s, int c);
+char *strdup(const char *s);
 
-bool strEql(string_t str1, string_t str2);
+bool strEql(string_t str1, string_t str2);char k_toupper(char c);
+char k_tolower(char c);
+char* strrchr(const char* s, int c);

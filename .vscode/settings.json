@@ -37,6 +37,7 @@
         "algorithm": "c",
         "pci.h": "c",
         "*.def": "c",
-        "cstdio": "c"
+        "cstdio": "c",
+        "multitasking.h": "c"
     }
 }

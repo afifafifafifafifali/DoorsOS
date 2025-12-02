@@ -28,3 +28,9 @@ void timer_sleep_ms(uint64_t ms) {
         asm volatile("pause"); // Yield CPU briefly
     }
 }
+
+static uint64_t timer_ticks = 0;
+
+uint64_t timer_get_ticks(void) {
+    return timer_ticks;
+}

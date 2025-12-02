@@ -171,3 +171,65 @@ string_t ps2_kbio_read(string_t buffStr, size_t buffSize) {
 
     return result;
 }
+string_t ps2_kbio_read_enhanced(string_t buffStr, size_t buffSize, int* cursor_y) {
+    if (!buffStr || buffSize == 0) return NULL;
+    
+    size_t index = 0;
+    uint8_t scancode;
+    char ch;
+    
+    while (index < buffSize - 1) {
+        while (!(inb(PS2_STATUS_PORT) & 1)) {
+            // Wait for key press
+        }
+        
+        scancode = inb(PS2_DATA_PORT);
+        
+        // Skip key release events (high bit set)
+        if (scancode & 0x80) continue;
+        
+        // Handle special keys
+        if (scancode == KEY_UP) {
+            if (cursor_y && *cursor_y > 0) {
+                (*cursor_y)--;
+                printf("\033[A"); // Move cursor up
+            }
+            continue;
+        }
+        
+        if (scancode == KEY_DOWN) {
+            if (cursor_y) {
+                (*cursor_y)++;
+                printf("\033[B"); // Move cursor down
+            }
+            continue;
+        }
+        
+        // Handle backspace (scancode 14)
+        if (scancode == 14) {
+            if (index > 0) {
+                index--;
+                printf("\b \b");
+            }
+            continue;
+        }
+        
+        // Handle enter (scancode 28)
+        if (scancode == 28) {
+            buffStr[index] = '\0';
+            return buffStr;
+        }
+        
+        // Handle regular keys
+        if (scancode < sizeof(characterTable)) {
+            ch = characterTable[scancode];
+            if (ch != 0 && ch >= 32 && ch <= 126) { // Printable characters
+                buffStr[index++] = ch;
+                printf("%c", ch);
+            }
+        }
+    }
+    
+    buffStr[index] = '\0';
+    return buffStr;
+}

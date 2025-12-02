@@ -48,7 +48,7 @@ volatile HBA_MEM* check_ahci_controller() {
         serial_io_printf("AHCI Base Address Register (ABAR): 0x%08x\n", ahci.abar);
         serial_io_printf("AHCI controller found at PCI %02x:%02x.%x\n", ahci.bus, ahci.device, ahci.function);
         
-        return ahci.abar;
+        return (volatile HBA_MEM*)(uintptr_t)ahci.abar;
     } else {
         printf("No AHCI controller detected on PCI bus.\n");
         return NULL;
