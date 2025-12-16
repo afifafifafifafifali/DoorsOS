@@ -28,6 +28,7 @@ void multitasking_init(void) {
     task_count = 0;
 }
 
+//FAKE
 void task_create(void (*entry_point)(void)) {
     if (task_count >= MAX_TASKS) {
         printf("[ERR] Too many tasks!\n");

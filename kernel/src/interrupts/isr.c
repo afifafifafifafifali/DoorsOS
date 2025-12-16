@@ -4,7 +4,8 @@
 #include "../gfx/printf.h"
 #include "../gfx/serial_io.h"
 #include "../ps2/io.h"
-
+#include "../gui/windows.h"
+#include "../gui/colorama.h"
 
 
 // Default exception messages
@@ -36,23 +37,34 @@ const char* exception_messages[] = {
     "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved"
 };
 
+
+
 void exception_handler(interrupt_frame_t* frame) {
-    printf("\n[EXCEPTION] Interrupt: %u (%s)\n", frame->int_no,
-           frame->int_no < sizeof(exception_messages)/sizeof(char*) ?
-           exception_messages[frame->int_no] : "Unknown");
+    char buf[756];
 
-    if (frame->int_no == 14) {
-        // Page Fault: get faulting address
-        uint64_t fault_addr;
-        asm volatile("mov %%cr2, %0" : "=r"(fault_addr));
-        printf("Page Fault at address: 0x%lx\n", fault_addr);
-        serial_io_printf("Page Fault at address: 0x%lx\n", fault_addr);
-    }
+    snprintf(buf, sizeof(buf), "AH SHIT![EXCEPTION] Interrupt: %llu ", frame->int_no);
+    kprint_color(buf, COLOR_RGB_RED, true, COLOR_RGB_BLACK, true);
+    printf("\n");
+    serial_io_printf("%s\n", buf);
 
-    // Halt the system
-    printf("System Halted.\n");
+    snprintf(buf, sizeof(buf),
+        "RAX=0x%016llx RBX=0x%016llx RCX=0x%016llx RDX=0x%016llx\n"
+        "RSI=0x%016llx RDI=0x%016llx RBP=0x%016llx RSP=0x%016llx\n"
+        "R8 =0x%016llx R9 =0x%016llx R10=0x%016llx R11=0x%016llx\n"
+        "R12=0x%016llx R13=0x%016llx R14=0x%016llx R15=0x%016llx\n"
+        "ERR=0x%016llx CS=0x%04llx RIP=0x%016llx RFLAGS=0x%016llx\n KERNEL STOP! PANIC",
+        frame->rax, frame->rbx, frame->rcx, frame->rdx,
+        frame->rsi, frame->rdi, frame->rbp, frame->rsp,
+        frame->r8, frame->r9, frame->r10, frame->r11,
+        frame->r12, frame->r13, frame->r14, frame->r15,
+        frame->err_code, frame->cs, frame->rip, frame->rflags
+    );
+    kprint_color(buf, COLOR_RGB_RED, true, COLOR_RGB_BLACK, true);
+    serial_io_printf("%s\n", buf);
+
     while (1) asm volatile("cli; hlt");
 }
+
 
 void irq_handler(interrupt_frame_t* frame) {
     if (interrupt_handlers[frame->int_no])

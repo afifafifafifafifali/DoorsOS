@@ -430,6 +430,11 @@ bool fat32_read_file_simple(const char* filename, void* buffer, uint32_t* size) 
     return false;
 }
 
+
+
+
+
+
 bool fat32_read_file(const char* filename, void* buffer, uint32_t* size) {
     return fat32_read_file_simple(filename, buffer, size);
 }

@@ -10,7 +10,10 @@
 #include "../mem/new/pmm.h"
 #include "../user/user_enhanced.h"
 #include "../info/meminfo.h"
+#include "sghsc_logo.h"
 #include "../snake.h"
+#include "gui/colorama.h"
+#include "gui/windows.h"
 
 static char current_dir[256] = "/";
 
@@ -32,6 +35,38 @@ static void cmd_help(void) {
 static void cmd_clear(void) {
     kprint("\e[2J\e[H");
 }
+
+#define COLOR_BLACK 0x000000
+
+void draw_sghsc_logo_exact(int x, int y) {
+    for (int j = 0; j < 64; j++) {
+        for (int i = 0; i < 64; i++) {
+            uint32_t color = sghsc_logo[j][i];
+            putPixel(x + i, y + j, color);
+        }
+    }
+}
+
+void clear_screen_original(void) {
+    struct limine_framebuffer* fb = framebuffer_request.response->framebuffers[0];
+    uint64_t pixels = fb->width * fb->height;
+    uint32_t* framebuffer = (uint32_t*) fb->address;
+
+    for (uint64_t i = 0; i < pixels; i++) {
+        framebuffer[i] = COLOR_BLACK;
+    }
+    // Move cursor to top-left
+    kprint("\e[2J\e[H");
+
+}
+
+int trigger_div0() {
+    int result;
+    int x = 1, y = 0;
+    __asm__ volatile("idivl %1" : "=a"(result) : "r"(y), "a"(x));
+    return result;
+}
+
 
 static void cmd_storage(void) {
     printf("Storage: %s\n", storage_get_type() == STORAGE_AHCI ? "AHCI" : "ATA");
@@ -150,7 +185,7 @@ static void cmd_cat(const char* filename) {
     }
     
     uint32_t size = 0;
-    if (fat32_read_file_simple(filename, buf, &size)) {
+    if (fat32_read_file(filename, buf, &size)) {
         for (uint32_t i = 0; i < size && i < 4096; i++) {
             printf("%c", buf[i]);
         }
@@ -296,8 +331,17 @@ static void cmd_mkfile(const char* filename) {
     k_free(content);
 }
 
+void print_doors_logo() {
+    printf("________                             ________    _________\n");
+    printf("\\______ \\   ____   ___________  _____\\_____  \\  /   _____/\n");
+    printf(" |    |  \\ /  _ \\ /  _ \\_  __ \\/  ___//   |   \\ \\_____  \\ \n");
+    printf(" |    `   (  <_> |  <_> )  | \\/\\___ \\/    |    \\/        \\\n");
+    printf("/_______  /\\____/ \\____/|__|  /____  >_______  /_______  /\n");
+    printf("        \\/                         \\/        \\/        \\/ \n");
+}
+
 void shell_run(void) {
-    printf("\nDoorsOS Shell v2.0\n");
+    printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
     printf("Type 'help' for commands\n\n");
     
     while (1) {
@@ -345,7 +389,10 @@ void shell_run(void) {
             cmd_cd(arg);
         } else if (strcmp(cmd, "ls") == 0) {
             cmd_ls(arg);
-        } else if (strcmp(cmd, "cat") == 0) {
+        } else if (strcmp(cmd,"crash") == 0){
+            trigger_div0();
+        }
+        else if (strcmp(cmd, "cat") == 0) {
             cmd_cat(arg);
         } else if (strcmp(cmd, "mkdir") == 0) {
             cmd_mkdir(arg);
@@ -357,7 +404,10 @@ void shell_run(void) {
             cmd_nano(arg);
         } else if (strcmp(cmd, "snake") == 0) {
             snake_run();
-        } else {
+        }else if(strcmp(cmd,"doorsfetch") == 0){
+            print_doors_logo();
+        }
+         else {
             printf("Unknown: %s\n", cmd);
         }
         

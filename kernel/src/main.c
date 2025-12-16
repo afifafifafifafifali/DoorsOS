@@ -10,6 +10,7 @@
 #include "datandtime.h"
 #include "info/cpuinfo.h"
 #include "interrupts/timer.h"
+#include "math.h"
 #include "interrupts/pic.h"
 #include "bootloader.h"
 #include "mem/new/pmm.h"
@@ -62,7 +63,7 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     }
     return 0;
 }
-
+/*
 static inline void enable_sse(void) {
     uint64_t cr0, cr4;
     __asm__ volatile("mov %%cr0, %0" : "=r"(cr0));
@@ -73,7 +74,58 @@ static inline void enable_sse(void) {
     cr4 |= (1 << 9) | (1 << 10);
     __asm__ volatile("mov %0, %%cr4" :: "r"(cr4));
 }
+*/
 
+
+static inline uint64_t read_cr4(void) {
+    uint64_t val;
+    __asm__ volatile("mov %%cr4, %0" : "=r"(val));
+    return val;
+}
+static inline void write_cr0(uint64_t val) {
+    __asm__ volatile("mov %0, %%cr0" :: "r"(val));
+}
+
+static inline void write_cr4(uint64_t val) {
+    __asm__ volatile("mov %0, %%cr4" :: "r"(val));
+}
+
+static inline uint64_t read_cr0(void) {
+    uint64_t val;
+    __asm__ volatile("mov %%cr0, %0" : "=r"(val));
+    return val;
+}
+
+static inline void enable_sse(void) {
+    uint64_t cr0 = read_cr0();
+    uint64_t cr4 = read_cr4();
+
+    cr0 &= ~(1UL << 2);  
+    cr0 |=  (1UL << 1);   
+    write_cr0(cr0);
+
+    cr4 |= (1UL << 9) |   
+           (1UL << 10);    
+
+    
+    uint32_t eax, ebx, ecx, edx;
+    __asm__ volatile(
+        "cpuid"
+        : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+        : "a"(1)
+    );
+    if (ecx & (1 << 26))   
+        cr4 |= (1UL << 18); 
+
+    write_cr4(cr4);
+
+    uint32_t xcr0_low = 0, xcr0_high = 0;
+    if (cr4 & (1UL << 18)) {
+        xcr0_low  = 0x3;
+        xcr0_high = 0x0;
+        __asm__ volatile("xsetbv" :: "c"(0), "a"(xcr0_low), "d"(xcr0_high));
+    }
+}
 static void hcf(void) {
     for (;;) {
         asm ("hlt");
@@ -81,8 +133,11 @@ static void hcf(void) {
 }
 
 void kmain(void) {
+    // ---------------Who ever types code in this area is gay except sse---------------------------
     enable_sse();
-    
+    // -----------------------Code end--------------------------------------------------
+
+    //------------------------Float enabled here nigga---------------------------------
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
         hcf();
     }
@@ -93,6 +148,8 @@ void kmain(void) {
     
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
     initialize_terminal(framebuffer);
+
+    serial_io_printf("%f",sqrt(9));
     
     printf("DoorsOS Kernel Booted!\n");
     
