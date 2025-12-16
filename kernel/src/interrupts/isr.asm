@@ -1,37 +1,50 @@
+
 %macro pushad 0
-    push rax
-    push rcx
-    push rdx
-    push rdi
-    push rsi
-    push r8
-    push r9
-    push r10
+    push r15
+    push r14
+    push r13
+    push r12
+    push rbp
+    push rbx
     push r11
+    push r10
+    push r9
+    push r8
+    push rsi
+    push rdi
+    push rdx
+    push rcx
+    push rax
 %endmacro
 
 %macro popad 0
-    pop r11
-    pop r10
-    pop r9
-    pop r8
-    pop rsi
-    pop rdi
-    pop rdx
-    pop rcx
     pop rax
+    pop rcx
+    pop rdx
+    pop rdi
+    pop rsi
+    pop r8
+    pop r9
+    pop r10
+    pop r11
+    pop rbx
+    pop rbp
+    pop r12
+    pop r13
+    pop r14
+    pop r15
 %endmacro
 
 %macro isr_err_stub 1
 isr_stub_%+%1:
-    push %1
+    push %1        ; interrupt number
     jmp isr_common_stub
 %endmacro
 
 %macro isr_no_err_stub 1
 isr_stub_%+%1:
-    push 0
-    push %1
+    push 0         ; fake error code
+    push %1        ; interrupt number
     jmp isr_common_stub
 %endmacro
 
@@ -41,21 +54,19 @@ global irq_stub_table
 extern exception_handler
 extern irq_handler
 
-; Common ISR handler stub
 isr_common_stub:
     pushad
     cld
-    lea rdi, [rsp]
+    lea rdi, [rsp]       ; pass pointer to interrupt_frame_t
     call exception_handler
     popad
-    add rsp, 8          ; remove pushed interrupt number
+    add rsp, 8           ; remove pushed int_no
     iretq
 
-; Common IRQ handler stub with PIC EOI
 irq_common_stub:
     pushad
     cld
-    lea rdi, [rsp]
+    lea rdi, [rsp]       ; pass pointer to interrupt_frame_t
     call irq_handler
     popad
 
@@ -63,17 +74,15 @@ irq_common_stub:
     mov al, 0x20
     out 0x20, al
 
-    ; Check if interrupt vector >= 40 (IRQ8+), send EOI to slave PIC
-    mov rax, [rsp + 8]  ; Interrupt vector number pushed earlier
+    ; Check if IRQ >= 8 (vector >= 40) -> send EOI to slave
+    mov rax, [rsp + 8]   ; interrupt vector
     cmp rax, 40
     jb .skip_slave_eoi
     out 0xA0, al
 .skip_slave_eoi:
-
-    add rsp, 8          ; remove pushed interrupt number
+    add rsp, 8            ; remove pushed int_no
     iretq
 
-; ISRs for exceptions 0-31
 isr_no_err_stub 0
 isr_no_err_stub 1
 isr_no_err_stub 2
@@ -107,7 +116,6 @@ isr_no_err_stub 29
 isr_err_stub    30
 isr_no_err_stub 31
 
-; IRQ stubs for IRQ0-15 (interrupt vectors 32-47)
 %assign i 32
 %rep 16
 irq_stub_%+i:
@@ -117,7 +125,6 @@ irq_stub_%+i:
     %assign i i+1
 %endrep
 
-; ISR stub table: pointers to ISRs 0-31
 isr_stub_table:
 %assign i 0
 %rep 32
@@ -125,7 +132,7 @@ isr_stub_table:
     %assign i i+1
 %endrep
 
-; IRQ stub table: pointers to IRQs 32-47
+
 irq_stub_table:
 %assign i 32
 %rep 16

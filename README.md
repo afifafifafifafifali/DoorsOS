@@ -28,14 +28,13 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Add PIC (essential stuff, easy)
 * [X]  Add a  allocator
 * [X]  Add a sleep function
-* [X]  Add ahci{Under Testing,Only Initialization has been done} {KILL ME BITCH<MOTHERFUCKER}
+* [X]  Add ahci(```c  virt = phys+hhdm ; // No more pf```)
 * [X]  Add a minimal bash v1
 * [X]  Add ATA/PIO(Can also support sata)
 * [X]  Add FAT32 Read
 * [X]  Add fat32 write
 * [X]  Add a PMM, PCI, And rpoper mapPage driver
 * [X]  Add DateAndTime support
-* [ ]  Add Ext2
 * [ ]  Add VFS
 * [ ]  Add ELF support
 * [ ]  Add Linux headers(Optional)
