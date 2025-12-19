@@ -135,3 +135,9 @@ void k_free(void* base) {
     uint64_t size = *(((uint64_t*) base) - 1);
     memset(base, 0, size);
 }
+
+void init_pmm(void) {
+    void* virt_base = phys_to_virt(memmap->base);
+    DS_Bitmap *bitmap = (DS_Bitmap *)virt_base;
+    memset(bitmap, 0, sizeof(DS_Bitmap));
+}

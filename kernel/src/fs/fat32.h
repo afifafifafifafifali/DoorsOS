@@ -29,5 +29,7 @@ bool fat32_create_directory(const char* dirname);
 bool fat32_read_file_simple(const char* filename, void* buffer, uint32_t* size);
 void fat32_test_complete(void);
 static bool fat32_read_file_in_dir(uint32_t dir_cluster, const char* filename, void* buffer, uint32_t* size);
+bool resolve_path_components(const char* path, uint32_t* dir_cluster, char* filename);
+bool fat32_delete_directory(const char* path);
 
 #endif

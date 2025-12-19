@@ -303,6 +303,50 @@ uint32_t fat32_path_to_cluster(const char* path) {
     return cluster;
 }
 
+// Resolve path components: separate directory path and filename
+// Returns true if successful, sets dir_cluster and filename
+bool resolve_path_components(const char* path, uint32_t* dir_cluster, char* filename) {
+    if (!path || !dir_cluster || !filename) return false;
+
+    char pathcopy[256];
+    strncpy(pathcopy, path, 255);
+    pathcopy[255] = 0;
+
+    // Determine starting cluster
+    uint32_t cluster = (path[0] == '/') ? fs.root_cluster : fat32_get_cwd_cluster();
+
+    // Find the last '/' to separate directory and filename
+    char* last_slash = strrchr(pathcopy, '/');
+    char* dir_path;
+    char* fname;
+
+    if (last_slash) {
+        // Path has directory component
+        *last_slash = 0;  // Split the string
+        dir_path = pathcopy;
+        fname = last_slash + 1;
+
+        // If path started with '/', dir_path might be empty or start with /
+        if (path[0] == '/' && strlen(dir_path) == 0) {
+            cluster = fs.root_cluster;
+        } else {
+            // Resolve directory path
+            cluster = fat32_path_to_cluster(dir_path);
+            if (!cluster) return false;
+        }
+    } else {
+        // No directory component, just filename in current dir
+        fname = pathcopy;
+    }
+
+    // Check if filename is empty (path ended with /)
+    if (strlen(fname) == 0) return false;
+
+    *dir_cluster = cluster;
+    strcpy(filename, fname);
+    return true;
+}
+
 bool fat32_dir_exists(const char* path) {
     return fat32_path_to_cluster(path) != 0;
 }
@@ -435,34 +479,102 @@ bool fat32_read_file_simple(const char* filename, void* buffer, uint32_t* size) 
 
 
 
+// Read file from specific directory cluster
+static bool fat32_read_file_in_dir(uint32_t dir_cluster, const char* filename, void* buffer, uint32_t* size) {
+    uint32_t lba = cluster_to_lba(dir_cluster);
+    char lfn[256];
+    memset(lfn, 0, 256);
+
+    for (uint32_t sec = 0; sec < fs.sectors_per_cluster; sec++) {
+        if (!storage_read_sectors(lba + sec, 1, sector_buf)) return false;
+
+        for (int i = 0; i < 16; i++) {
+            uint8_t* entry = &sector_buf[i * 32];
+            if (entry[0] == 0) return false;
+            if (entry[0] == 0xE5) continue;
+
+            // LFN entry
+            if (entry[11] == 0x0F) {
+                lfn_extract(entry, lfn, entry[0]);
+                continue;
+            }
+
+            if (entry[11] & 0x10) {
+                memset(lfn, 0, 256);  // Reset for dirs
+                continue;
+            }
+
+            // Get name (LFN or 8.3)
+            char name[256];
+            if (lfn[0]) {
+                strcpy(name, lfn);
+                memset(lfn, 0, 256);
+            } else {
+                int pos = 0;
+                for (int j = 0; j < 8 && entry[j] != ' '; j++) {
+                    name[pos++] = entry[j];
+                }
+                if (entry[8] != ' ') {
+                    name[pos++] = '.';
+                    for (int j = 8; j < 11 && entry[j] != ' '; j++) {
+                        name[pos++] = entry[j];
+                    }
+                }
+                name[pos] = 0;
+            }
+
+            if (strcasecmp_local(name, filename) == 0) {
+                uint32_t cluster = *(uint16_t*)&entry[26] | (*(uint16_t*)&entry[20] << 16);
+                *size = *(uint32_t*)&entry[28];
+
+                uint32_t file_lba = cluster_to_lba(cluster);
+                uint32_t sectors = (*size + 511) / 512;
+
+                for (uint32_t s = 0; s < sectors && s < 8; s++) {
+                    storage_read_sectors(file_lba + s, 1, (uint8_t*)buffer + s * 512);
+                }
+
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 bool fat32_read_file(const char* filename, void* buffer, uint32_t* size) {
-    return fat32_read_file_simple(filename, buffer, size);
+    uint32_t dir_cluster;
+    char fname[256];
+
+    if (!resolve_path_components(filename, &dir_cluster, fname)) {
+        return false;
+    }
+
+    return fat32_read_file_in_dir(dir_cluster, fname, buffer, size);
 }
 
 
-bool fat32_write_file(const char* filename, const uint8_t* data, uint32_t size) {
-    // Delete existing file first (allows overwrite)
-    fat32_delete_file(filename);
-    
+// Write file to specific directory cluster
+static bool fat32_write_file_in_dir(uint32_t dir_cluster, const char* filename, const uint8_t* data, uint32_t size) {
     uint32_t cluster = allocate_cluster();
     if (!cluster) return false;
-    
+
     // Write data
     uint32_t lba = cluster_to_lba(cluster);
     uint32_t sectors = (size + 511) / 512;
-    
+
     for (uint32_t i = 0; i < sectors; i++) {
         memset(sector_buf, 0, 512);
         uint32_t copy_size = (size - i * 512 > 512) ? 512 : size - i * 512;
         memcpy(sector_buf, &data[i * 512], copy_size);
         storage_write_sectors(lba + i, 1, sector_buf);
     }
-    
+
     // Generate short name and check if LFN needed
     uint8_t shortname[11];
     generate_short_name(filename, shortname);
     uint8_t checksum = lfn_checksum(shortname);
-    
+
     int namelen = strlen(filename);
     int lfn_entries = (namelen + 12) / 13;  // Number of LFN entries needed
     bool needs_lfn = (namelen > 11);
@@ -471,16 +583,16 @@ bool fat32_write_file(const char* filename, const uint8_t* data, uint32_t size) 
         if (filename[i] == ' ') needs_lfn = true;
     }
     if (!needs_lfn) lfn_entries = 0;
-    
+
     int entries_needed = lfn_entries + 1;  // LFN entries + 1 short entry
-    
+
     // Find consecutive free entries in directory
-    uint32_t dir_lba = cluster_to_lba(fat32_get_cwd_cluster());
+    uint32_t dir_lba = cluster_to_lba(dir_cluster);
     storage_read_sectors(dir_lba, 1, sector_buf);
-    
+
     int free_start = -1;
     int free_count = 0;
-    
+
     for (int i = 0; i < 16; i++) {
         uint8_t* entry = &sector_buf[i * 32];
         if (entry[0] == 0 || entry[0] == 0xE5) {
@@ -492,15 +604,15 @@ bool fat32_write_file(const char* filename, const uint8_t* data, uint32_t size) 
             free_count = 0;
         }
     }
-    
+
     if (free_count < entries_needed) return false;
-    
+
     // Write LFN entries (in reverse order)
     for (int seq = lfn_entries; seq >= 1; seq--) {
         int idx = free_start + (lfn_entries - seq);
         lfn_create_entry(&sector_buf[idx * 32], filename, seq, checksum, seq == lfn_entries);
     }
-    
+
     // Write short entry
     uint8_t* entry = &sector_buf[(free_start + lfn_entries) * 32];
     memset(entry, 0, 32);
@@ -509,32 +621,48 @@ bool fat32_write_file(const char* filename, const uint8_t* data, uint32_t size) 
     *(uint16_t*)&entry[26] = cluster & 0xFFFF;
     *(uint16_t*)&entry[20] = cluster >> 16;
     *(uint32_t*)&entry[28] = size;
-    
+
     storage_write_sectors(dir_lba, 1, sector_buf);
     return true;
 }
 
-bool fat32_delete_file(const char* filename) {
-    uint32_t lba = cluster_to_lba(fat32_get_cwd_cluster());
+bool fat32_write_file(const char* filename, const uint8_t* data, uint32_t size) {
+    uint32_t dir_cluster;
+    char fname[256];
+
+    if (!resolve_path_components(filename, &dir_cluster, fname)) {
+        return false;
+    }
+
+    // Delete existing file first (allows overwrite)
+    // TODO: Implement delete in specific directory
+    fat32_delete_file(filename);
+
+    return fat32_write_file_in_dir(dir_cluster, fname, data, size);
+}
+
+// Delete file from specific directory cluster
+static bool fat32_delete_file_in_dir(uint32_t dir_cluster, const char* filename) {
+    uint32_t lba = cluster_to_lba(dir_cluster);
     char lfn[256];
     memset(lfn, 0, 256);
     int lfn_start = -1;
-    
+
     for (uint32_t sec = 0; sec < fs.sectors_per_cluster; sec++) {
         if (!storage_read_sectors(lba + sec, 1, sector_buf)) return false;
-        
+
         for (int i = 0; i < 16; i++) {
             uint8_t* entry = &sector_buf[i * 32];
             if (entry[0] == 0) return false;
             if (entry[0] == 0xE5) continue;
-            
+
             // LFN entry
             if (entry[11] == 0x0F) {
                 if (entry[0] & 0x40) lfn_start = i;  // First LFN entry
                 lfn_extract(entry, lfn, entry[0]);
                 continue;
             }
-            
+
             // Get name (LFN or 8.3)
             char name[256];
             if (lfn[0]) {
@@ -553,7 +681,7 @@ bool fat32_delete_file(const char* filename) {
                 name[pos] = 0;
                 lfn_start = i;  // No LFN, just this entry
             }
-            
+
             if (strcasecmp_local(name, filename) == 0) {
                 // Delete all entries from lfn_start to i
                 for (int j = lfn_start; j <= i; j++) {
@@ -562,32 +690,42 @@ bool fat32_delete_file(const char* filename) {
                 storage_write_sectors(lba + sec, 1, sector_buf);
                 return true;
             }
-            
+
             memset(lfn, 0, 256);
             lfn_start = -1;
         }
     }
-    
+
     return false;
 }
 
-bool fat32_create_directory(const char* dirname) {
+bool fat32_delete_file(const char* filename) {
+    uint32_t dir_cluster;
+    char fname[256];
+
+    if (!resolve_path_components(filename, &dir_cluster, fname)) {
+        return false;
+    }
+
+    return fat32_delete_file_in_dir(dir_cluster, fname);
+}
+
+// Create directory in specific parent cluster
+static bool fat32_create_directory_in_parent(uint32_t parent_cluster, const char* dirname) {
     uint32_t cluster = allocate_cluster();
     if (!cluster) return false;
-    
-    uint32_t parent_cluster = fat32_get_cwd_cluster();
-    
+
     // Create . and .. entries
     uint32_t lba = cluster_to_lba(cluster);
     memset(sector_buf, 0, 512);
-    
+
     uint8_t* dot = &sector_buf[0];
     memset(dot, ' ', 11);
     dot[0] = '.';
     dot[11] = 0x10;
     *(uint16_t*)&dot[26] = cluster & 0xFFFF;
     *(uint16_t*)&dot[20] = cluster >> 16;
-    
+
     uint8_t* dotdot = &sector_buf[32];
     memset(dotdot, ' ', 11);
     dotdot[0] = '.';
@@ -595,14 +733,14 @@ bool fat32_create_directory(const char* dirname) {
     dotdot[11] = 0x10;
     *(uint16_t*)&dotdot[26] = parent_cluster & 0xFFFF;
     *(uint16_t*)&dotdot[20] = parent_cluster >> 16;
-    
+
     if (!storage_write_sectors(lba, 1, sector_buf)) return false;
-    
+
     // Generate short name and LFN entries
     uint8_t shortname[11];
     generate_short_name(dirname, shortname);
     uint8_t checksum = lfn_checksum(shortname);
-    
+
     int namelen = strlen(dirname);
     int lfn_entries = (namelen + 12) / 13;
     bool needs_lfn = (namelen > 8);  // Dirs don't have extensions typically
@@ -611,16 +749,16 @@ bool fat32_create_directory(const char* dirname) {
         if (dirname[i] == ' ') needs_lfn = true;
     }
     if (!needs_lfn) lfn_entries = 0;
-    
+
     int entries_needed = lfn_entries + 1;
-    
-    // Add to current directory
+
+    // Add to parent directory
     uint32_t dir_lba = cluster_to_lba(parent_cluster);
     if (!storage_read_sectors(dir_lba, 1, sector_buf)) return false;
-    
+
     int free_start = -1;
     int free_count = 0;
-    
+
     for (int i = 0; i < 16; i++) {
         uint8_t* entry = &sector_buf[i * 32];
         if (entry[0] == 0 || entry[0] == 0xE5) {
@@ -632,15 +770,15 @@ bool fat32_create_directory(const char* dirname) {
             free_count = 0;
         }
     }
-    
+
     if (free_count < entries_needed) return false;
-    
+
     // Write LFN entries (reverse order)
     for (int seq = lfn_entries; seq >= 1; seq--) {
         int idx = free_start + (lfn_entries - seq);
         lfn_create_entry(&sector_buf[idx * 32], dirname, seq, checksum, seq == lfn_entries);
     }
-    
+
     // Write short entry
     uint8_t* entry = &sector_buf[(free_start + lfn_entries) * 32];
     memset(entry, 0, 32);
@@ -648,6 +786,135 @@ bool fat32_create_directory(const char* dirname) {
     entry[11] = 0x10;  // Directory attribute
     *(uint16_t*)&entry[26] = cluster & 0xFFFF;
     *(uint16_t*)&entry[20] = cluster >> 16;
-    
+
     return storage_write_sectors(dir_lba, 1, sector_buf);
+}
+
+bool fat32_create_directory(const char* dirname) {
+    // Handle full paths with intermediate directory creation
+    char pathcopy[256];
+    strncpy(pathcopy, dirname, 255);
+    pathcopy[255] = 0;
+
+    uint32_t current_cluster = (pathcopy[0] == '/') ? fs.root_cluster : fat32_get_cwd_cluster();
+
+    char* token = pathcopy;
+    if (*token == '/') token++;
+
+    while (*token) {
+        char* next = strchr(token, '/');
+        if (next) *next = 0;
+
+        if (strlen(token) > 0) {
+            // Check if directory exists
+            uint32_t existing = find_dir_cluster(current_cluster, token);
+            if (existing) {
+                current_cluster = existing;
+            } else {
+                // Create it
+                if (!fat32_create_directory_in_parent(current_cluster, token)) {
+                    return false;
+                }
+                // Find the newly created cluster
+                existing = find_dir_cluster(current_cluster, token);
+                if (!existing) return false;
+                current_cluster = existing;
+            }
+        }
+
+        if (next) token = next + 1;
+        else break;
+    }
+
+    return true;
+}
+
+bool fat32_delete_directory(const char* path) {
+    uint32_t cluster = fat32_path_to_cluster(path);
+    if (!cluster) return false;
+
+    // Check if directory is empty (only . and .. entries)
+    uint32_t lba = cluster_to_lba(cluster);
+    if (!storage_read_sectors(lba, 1, sector_buf)) return false;
+
+    bool empty = true;
+    for (int i = 2; i < 16; i++) {  // Skip . and ..
+        uint8_t* entry = &sector_buf[i * 32];
+        if (entry[0] != 0 && entry[0] != 0xE5) {
+            empty = false;
+            break;
+        }
+    }
+
+    if (!empty) return false;  // Directory not empty
+
+    // Find and delete directory entry from parent
+    char pathcopy[256];
+    strncpy(pathcopy, path, 255);
+    pathcopy[255] = 0;
+
+    char* last_slash = strrchr(pathcopy, '/');
+    uint32_t parent_cluster;
+    char dirname[256];
+
+    if (last_slash) {
+        *last_slash = 0;
+        parent_cluster = fat32_path_to_cluster(pathcopy[0] ? pathcopy : "/");
+        strcpy(dirname, last_slash + 1);
+    } else {
+        parent_cluster = fat32_get_cwd_cluster();
+        strcpy(dirname, pathcopy);
+    }
+
+    if (!parent_cluster) return false;
+
+    // Delete entry from parent directory
+    uint32_t parent_lba = cluster_to_lba(parent_cluster);
+    char lfn[256];
+    memset(lfn, 0, 256);
+    int lfn_start = -1;
+
+    for (uint32_t sec = 0; sec < fs.sectors_per_cluster; sec++) {
+        if (!storage_read_sectors(parent_lba + sec, 1, sector_buf)) return false;
+
+        for (int i = 0; i < 16; i++) {
+            uint8_t* entry = &sector_buf[i * 32];
+            if (entry[0] == 0) return false;
+            if (entry[0] == 0xE5) continue;
+
+            // LFN entry
+            if (entry[11] == 0x0F) {
+                if (entry[0] & 0x40) lfn_start = i;
+                lfn_extract(entry, lfn, entry[0]);
+                continue;
+            }
+
+            // Get name
+            char name[256];
+            if (lfn[0]) {
+                strcpy(name, lfn);
+            } else {
+                int pos = 0;
+                for (int j = 0; j < 8 && entry[j] != ' '; j++) {
+                    name[pos++] = entry[j];
+                }
+                name[pos] = 0;
+                lfn_start = i;
+            }
+
+            if (strcasecmp_local(name, dirname) == 0 && (entry[11] & 0x10)) {
+                // Mark entries as deleted
+                for (int j = lfn_start; j <= i; j++) {
+                    sector_buf[j * 32] = 0xE5;
+                }
+                storage_write_sectors(parent_lba + sec, 1, sector_buf);
+                return true;
+            }
+
+            memset(lfn, 0, 256);
+            lfn_start = -1;
+        }
+    }
+
+    return false;
 }
