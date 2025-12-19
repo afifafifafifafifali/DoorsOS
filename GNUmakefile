@@ -74,6 +74,7 @@ run-idk-hdd: $(IMAGE_NAME).hdd disk.img
 
 .PHONY: run-hdd-ahci
 run-hdd-ahci: $(IMAGE_NAME).hdd
+	clear
 	qemu-system-x86_64.exe \
 		-cpu qemu64,+sse,+sse2 \
 		-drive id=disk,file=$(IMAGE_NAME).hdd,format=raw,if=none \
@@ -134,12 +135,14 @@ $(IMAGE_NAME).iso: kernel
 	rm -rf iso_root
 
 $(IMAGE_NAME).hdd:  kernel
-	rm -f $(IMAGE_NAME).hdd
-	dd if=/dev/zero bs=1M count=0 seek=64 of=$(IMAGE_NAME).hdd
-	PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00 -m 1
-	./limine/limine bios-install $(IMAGE_NAME).hdd
-	mformat -F -v DOORSOS -i $(IMAGE_NAME).hdd@@1M ::
-	mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine
+	rm -f DoorsOS.hdd
+	@if [ ! -f $(IMAGE_NAME).hdd ]; then \
+		dd if=/dev/zero bs=1M count=64 of=$(IMAGE_NAME).hdd; \
+		PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00 -m 1; \
+		./limine/limine bios-install $(IMAGE_NAME).hdd; \
+		mformat -F -v DOORSOS -i $(IMAGE_NAME).hdd@@1M ::; \
+		mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine; \
+	fi
 	mcopy -i $(IMAGE_NAME).hdd@@1M kernel/bin/kernel ::/boot
 	mcopy -i $(IMAGE_NAME).hdd@@1M test.txt ::/
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf limine/limine-bios.sys ::/boot/limine

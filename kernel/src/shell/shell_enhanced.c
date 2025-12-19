@@ -215,11 +215,24 @@ static void cmd_rm(const char* filename) {
         printf("Usage: rm <file>\n");
         return;
     }
-    
+
     if (fat32_delete_file(filename)) {
         printf("Deleted: %s\n", filename);
     } else {
         printf("Failed to delete: %s\n", filename);
+    }
+}
+
+static void cmd_rmdir(const char* dirname) {
+    if (!dirname) {
+        printf("Usage: rmdir <directory>\n");
+        return;
+    }
+
+    if (fat32_delete_directory(dirname)) {
+        printf("Removed directory: %s\n", dirname);
+    } else {
+        printf("Failed to remove directory: %s (may not be empty or not exist)\n", dirname);
     }
 }
 
@@ -244,8 +257,9 @@ static void cmd_nano(const char* filename) {
     printf("Editing: %s\n", filename);
     printf("Commands: :wq = save & quit, :q = quit without saving\n");
     printf("Enter text:\n");
-    
+
     while (1) {
+        printf("> ");
         char line[256];
         char* input = ps2_kbio_read(line, 255);
         if (!input) continue;
@@ -400,6 +414,8 @@ void shell_run(void) {
             cmd_mkfile(arg);
         } else if (strcmp(cmd, "rm") == 0) {
             cmd_rm(arg);
+        } else if (strcmp(cmd, "rmdir") == 0) {
+            cmd_rmdir(arg);
         } else if (strcmp(cmd, "nano") == 0) {
             cmd_nano(arg);
         } else if (strcmp(cmd, "snake") == 0) {
