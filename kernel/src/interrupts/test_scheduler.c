@@ -31,7 +31,6 @@ void consumer_task(void) {
 void test_multitasking_pipes(void) {
     printf("=== Multitasking & Pipe Test ===\n");
     
-    scheduler_init();
     test_pipe = pipe_create();
     
     if (test_pipe < 0) {
@@ -48,8 +47,9 @@ void test_multitasking_pipes(void) {
     }
     
     printf("Tasks created: Producer=%d, Consumer=%d\n", t1, t2);
+    printf("Running with manual scheduling...\n");
     
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 200; i++) {
         scheduler_tick();
         timer_sleep_ms(10);
     }

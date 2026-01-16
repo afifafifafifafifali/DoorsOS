@@ -15,6 +15,10 @@
 #include "gui/colorama.h"
 #include "gui/windows.h"
 #include "../interrupts/test_scheduler.h"
+#include "../interrupts/test_counter.h"
+#include "../vm/test_vm.h"
+#include "../vm/loader.h"
+#include "../vm/assembler.h"
 
 static char current_dir[256] = "/";
 
@@ -31,6 +35,11 @@ static void cmd_help(void) {
     printf("  pwd          - Print working directory\n");
     printf("  snake        - Play snake game\n");
     printf("  testpipe     - Test multitasking & pipes\n");
+    printf("  counter      - Test counter with pipes\n");
+    printf("  vm           - Test VM calculator\n");
+    printf("  vmloop       - Test VM loop\n");
+    printf("  exec <file>  - Execute bytecode program\n");
+    printf("  asm [file]   - Assemble and run program\n");
     printf("  mem, tasks, run <task>, time, reboot\n");
 }
 
@@ -426,6 +435,21 @@ void shell_run(void) {
             print_doors_logo();
         } else if (strcmp(cmd, "testpipe") == 0) {
             test_multitasking_pipes();
+        } else if (strcmp(cmd, "counter") == 0) {
+            test_counter();
+        } else if (strcmp(cmd, "vm") == 0) {
+            test_vm();
+        } else if (strcmp(cmd, "vmloop") == 0) {
+            test_vm_loop();
+        } else if (strcmp(cmd, "exec") == 0) {
+            if (arg) run_program(arg);
+            else printf("Usage: exec <filename>\n");
+        } else if (strcmp(cmd, "asm") == 0) {
+            if (arg) assemble_file(arg);
+            else {
+                const char *prog = "PUSH 10\nPUSH 5\nADD\nPRINT\nHALT\n";
+                assemble_program(prog);
+            }
         } else {
             printf("Unknown: %s\n", cmd);
         }
