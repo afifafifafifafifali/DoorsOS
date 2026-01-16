@@ -114,6 +114,103 @@ void assemble_file(const char *filename) {
     }
     
     source[size] = '\0';
-    assemble_program((char *)source);
+    
+    // Assemble
+    uint8_t bytecode[1024];
+    int bc_len = 0;
+    
+    const char *line = (char *)source;
+    while (*line && bc_len < 1024) {
+        uint8_t out[2];
+        int out_len;
+        
+        if (assemble_line(line, out, &out_len)) {
+            for (int i = 0; i < out_len; i++) {
+                bytecode[bc_len++] = out[i];
+            }
+        }
+        
+        while (*line && *line != '\n') line++;
+        if (*line == '\n') line++;
+    }
+    
+    printf("Assembled %d bytes\n", bc_len);
     free(source);
+    
+    // Run
+    vm_t vm;
+    vm_init(&vm);
+    vm_load(&vm, bytecode, bc_len);
+    vm_run(&vm);
+}
+
+void assemble_to_file(const char *src_file, const char *out_file) {
+    printf("Assembling: %s -> %s\n", src_file, out_file);
+    
+    uint8_t *source = malloc(4096);
+    if (!source) {
+        printf("Memory allocation failed\n");
+        return;
+    }
+    
+    uint32_t size;
+    if (!fat32_read_file(src_file, source, &size)) {
+        printf("Failed to read file\n");
+        free(source);
+        return;
+    }
+    
+    source[size] = '\0';
+    
+    // Assemble
+    uint8_t bytecode[1024];
+    int bc_len = 0;
+    
+    const char *line = (char *)source;
+    while (*line && bc_len < 1024) {
+        uint8_t out[2];
+        int out_len;
+        
+        if (assemble_line(line, out, &out_len)) {
+            for (int i = 0; i < out_len; i++) {
+                bytecode[bc_len++] = out[i];
+            }
+        }
+        
+        while (*line && *line != '\n') line++;
+        if (*line == '\n') line++;
+    }
+    
+    printf("Assembled %d bytes\n", bc_len);
+    free(source);
+    
+    // Convert to hex text format
+    char *hex_output = malloc(bc_len * 5 + 1);
+    if (!hex_output) {
+        printf("Memory allocation failed\n");
+        return;
+    }
+    
+    int hex_len = 0;
+    for (int i = 0; i < bc_len; i++) {
+        hex_output[hex_len++] = '0';
+        hex_output[hex_len++] = 'x';
+        
+        uint8_t high = (bytecode[i] >> 4) & 0xF;
+        uint8_t low = bytecode[i] & 0xF;
+        
+        hex_output[hex_len++] = high < 10 ? '0' + high : 'a' + high - 10;
+        hex_output[hex_len++] = low < 10 ? '0' + low : 'a' + low - 10;
+        hex_output[hex_len++] = '\n';
+    }
+    hex_output[hex_len] = '\0';
+    
+    // Write hex text
+    if (fat32_write_file(out_file, (uint8_t *)hex_output, hex_len)) {
+        printf("Bytecode written to %s\n", out_file);
+    } else {
+        printf("Failed to write bytecode\n");
+    }
+    
+    free(hex_output);
 }
