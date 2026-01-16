@@ -14,6 +14,7 @@
 #include "../snake.h"
 #include "gui/colorama.h"
 #include "gui/windows.h"
+#include "../interrupts/test_scheduler.h"
 
 static char current_dir[256] = "/";
 
@@ -29,6 +30,7 @@ static void cmd_help(void) {
     printf("  rm <file>    - Delete file\n");
     printf("  pwd          - Print working directory\n");
     printf("  snake        - Play snake game\n");
+    printf("  testpipe     - Test multitasking & pipes\n");
     printf("  mem, tasks, run <task>, time, reboot\n");
 }
 
@@ -422,8 +424,9 @@ void shell_run(void) {
             snake_run();
         }else if(strcmp(cmd,"doorsfetch") == 0){
             print_doors_logo();
-        }
-         else {
+        } else if (strcmp(cmd, "testpipe") == 0) {
+            test_multitasking_pipes();
+        } else {
             printf("Unknown: %s\n", cmd);
         }
         

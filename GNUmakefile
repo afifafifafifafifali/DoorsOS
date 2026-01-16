@@ -83,7 +83,7 @@ run-hdd-ahci: $(IMAGE_NAME).hdd
 		-netdev user,id=n0 \
 		-device rtl8139,netdev=n0 \
 		-serial stdio \
-		-m 1G \
+		-m 2G \
 		$(QEMUFLAGS)
 
 
