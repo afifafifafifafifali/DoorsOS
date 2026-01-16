@@ -40,6 +40,7 @@ static void cmd_help(void) {
     printf("  vmloop       - Test VM loop\n");
     printf("  exec <file>  - Execute bytecode program\n");
     printf("  asm [file]   - Assemble and run program\n");
+    printf("  build <src> <out> - Assemble to bytecode file\n");
     printf("  mem, tasks, run <task>, time, reboot\n");
 }
 
@@ -449,6 +450,20 @@ void shell_run(void) {
             else {
                 const char *prog = "PUSH 10\nPUSH 5\nADD\nPRINT\nHALT\n";
                 assemble_program(prog);
+            }
+        } else if (strcmp(cmd, "build") == 0) {
+            if (arg) {
+                char *space = strchr(arg, ' ');
+                if (space) {
+                    *space = '\0';
+                    char *out = space + 1;
+                    while (*out == ' ') out++;
+                    assemble_to_file(arg, out);
+                } else {
+                    printf("Usage: build <source.asm> <output.bc>\n");
+                }
+            } else {
+                printf("Usage: build <source.asm> <output.bc>\n");
             }
         } else {
             printf("Unknown: %s\n", cmd);
