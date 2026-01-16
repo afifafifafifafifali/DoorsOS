@@ -233,3 +233,13 @@ string_t ps2_kbio_read_enhanced(string_t buffStr, size_t buffSize, int* cursor_y
     buffStr[index] = '\0';
     return buffStr;
 }
+
+char ps2_kbio_getchar_nb(void) {
+    if (!(inb(PS2_STATUS_PORT) & 1)) return 0;
+    
+    uint8_t scancode = inb(PS2_DATA_PORT);
+    if (scancode & 0x80) return 0;
+    if (scancode >= sizeof(characterTable)) return 0;
+    
+    return characterTable[scancode];
+}

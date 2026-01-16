@@ -33,5 +33,7 @@ int sched_task_create(void (*entry)(void), int priority);
 void scheduler_tick(void);
 void sched_task_exit(void);
 int get_current_tid(void);
+void scheduler_enable(void);
+void scheduler_disable(void);
 
 #endif

@@ -7,6 +7,7 @@
 #include "interrupts/isr.h"
 #include "fs/ahci_driver.h"
 #include "interrupts/multitasking.h"
+#include "interrupts/scheduler.h"
 #include "datandtime.h"
 #include "info/cpuinfo.h"
 #include "interrupts/timer.h"
@@ -169,6 +170,7 @@ void kmain(void) {
     init_idt();
     timer_init(600000000ULL);
     multitasking_init();
+    scheduler_init();
     enable_interrupts();
     
     ps2_kbio_init();
