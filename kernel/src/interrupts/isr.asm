@@ -69,17 +69,6 @@ irq_common_stub:
     lea rdi, [rsp]       ; pass pointer to interrupt_frame_t
     call irq_handler
     popad
-
-    ; Send EOI to master PIC
-    mov al, 0x20
-    out 0x20, al
-
-    ; Check if IRQ >= 8 (vector >= 40) -> send EOI to slave
-    mov rax, [rsp + 8]   ; interrupt vector
-    cmp rax, 40
-    jb .skip_slave_eoi
-    out 0xA0, al
-.skip_slave_eoi:
     add rsp, 8            ; remove pushed int_no
     iretq
 

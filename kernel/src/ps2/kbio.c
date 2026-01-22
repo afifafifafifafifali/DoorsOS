@@ -4,6 +4,7 @@
 
 #include "../gfx/term.h"
 #include "../interrupts/isr.h"
+#include "../interrupts/pic.h"
 #include "../gfx/printf.h"
 #include "../interrupts/multitasking.h"
 #include "io.h"
@@ -58,7 +59,10 @@ static bool input_finished = false;
 void keyboard_irq_handler(interrupt_frame_t* frame) {
     (void)frame;
 
-    if (input_finished) return;  // Ignore input after Enter pressed
+    if (input_finished) {
+        send_eoi_to_irq(1);
+        return;  // Ignore input after Enter pressed
+    }
 
     uint8_t scancode = inb(PS2_DATA_PORT);
 
@@ -69,17 +73,20 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
         if (scancode == 42 || scancode == 54) { // Shift released
             shiftPressed = false;
         }
+        send_eoi_to_irq(1);
         return;
     }
 
     // Key press handling
     if (scancode == 42 || scancode == 54) { // Shift pressed
         shiftPressed = true;
+        send_eoi_to_irq(1);
         return;
     }
 
     if (scancode == 58) { // Caps Lock toggle
         capsLock = !capsLock;
+        send_eoi_to_irq(1);
         return;
     }
 
@@ -89,6 +96,7 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
         if (inputBuffer && bufferPos < bufferSize) {
             inputBuffer[bufferPos] = '\0';
         }
+        send_eoi_to_irq(1);
         return; // Do not echo Enter
     }
     if (scancode == 0x0E) { // Backspace
@@ -97,6 +105,7 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
         inputBuffer[bufferPos] = '\0';
         printf("\b \b");
     }
+    send_eoi_to_irq(1);
     return;
 }
 
@@ -123,6 +132,7 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
         char buf[2] = {c, '\0'};
         printfch(buf); // Echo to screen
     }
+    send_eoi_to_irq(1);
 }
 
 void ps2_kbio_init(void) {

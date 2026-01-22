@@ -154,7 +154,6 @@ void kmain(void) {
     
     printf("DoorsOS Kernel Booted!\n");
     
-    // Initialize PMM first
     if (memmap_request.response == NULL || hhdm_request.response == NULL) {
         printf("Limine memmap or HHDM response is NULL. Halting.\n");
         hcf();
@@ -169,6 +168,10 @@ void kmain(void) {
     remap_pic(0x20, 0x28);
     init_idt();
     timer_init(600000000ULL);
+    pit_init(100); 
+    pit_test(); 
+    printf("Sleepin \n");
+    timer_sleep_ms(1000);
     multitasking_init();
     scheduler_init();
     enable_interrupts();
@@ -180,13 +183,12 @@ void kmain(void) {
     printf("=== DoorsOS System Initialized ===\n");
     serial_io_printf("=== DoorsOS System Initialized ===\n");
     
-    // Auto-detect storage (checks boot sector)
+    // auto-detect storage (checks boot sector)
     storage_init();
     
     printf("Storage init done!\n");
     serial_io_printf("DEBUG: After storage_init\n");
     
-    // Mount filesystem for any storage type
     if (storage_get_type() != STORAGE_NONE) {
         printf("Mounting FAT32...\n");
         bool mounted = fat32_mount(2048, false);
