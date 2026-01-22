@@ -21,13 +21,20 @@ void timer_init(uint64_t cpu_hz) {
     cpu_frequency_hz = cpu_hz;
     printf("Timer initialized with CPU frequency: %llu Hz\n", cpu_frequency_hz);
 }
-
+/*
 void timer_sleep_ms(uint64_t ms) {
     if (cpu_frequency_hz == 0) return;
     uint64_t start = rdtsc();
     uint64_t wait_cycles = (cpu_frequency_hz / 1000) * ms;
     while ((rdtsc() - start) < wait_cycles) {
         asm volatile("pause");
+    }
+}*/
+
+void timer_sleep_ms(uint64_t ms) {
+    uint64_t target_ticks = timer_ticks + (ms * 100 / 1000); //  100Hz PIT
+    while (timer_ticks < target_ticks) {
+        asm volatile("hlt"); 
     }
 }
 
@@ -51,4 +58,18 @@ void pit_init(uint32_t freq) {
     outb(0x40, (divisor >> 8) & 0xFF);
     register_irq_handler(32, timer_irq_handler);
     clear_mask_for_irq(0);
+    printf("PIT initialized at %u Hz (divisor: %u)\n", freq, divisor);
+}
+
+void pit_test(void) {
+    printf("PIT Test: Starting 3-second timer test...\n");
+    uint64_t start_ticks = timer_ticks;
+    
+    while ((timer_ticks - start_ticks) < 300) {
+        asm volatile("pause");
+    }
+    
+    uint64_t elapsed_ticks = timer_ticks - start_ticks;
+    printf("PIT Test: Expected 300 ticks, got %llu ticks\n", elapsed_ticks);
+    printf("PIT Test: %s\n", (elapsed_ticks >= 290 && elapsed_ticks <= 310) ? "PASS" : "FAIL");
 }
