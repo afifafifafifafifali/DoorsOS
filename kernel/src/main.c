@@ -171,7 +171,7 @@ void kmain(void) {
     pit_init(100); 
     pit_test(); 
     printf("Sleepin \n");
-    timer_sleep_ms(1000);
+    timer_sleep_ms(3000);
     multitasking_init();
     scheduler_init();
     enable_interrupts();

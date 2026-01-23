@@ -32,7 +32,8 @@ void timer_sleep_ms(uint64_t ms) {
 }*/
 
 void timer_sleep_ms(uint64_t ms) {
-    uint64_t target_ticks = timer_ticks + (ms * 100 / 1000); //  100Hz PIT
+    //uint64_t target_ticks = timer_ticks + (ms * 100 / 1000); //  100Hz PIT
+    uint64_t target_ticks = timer_ticks + (ms + 9) / 10;
     while (timer_ticks < target_ticks) {
         asm volatile("hlt"); 
     }
