@@ -6,8 +6,6 @@
 #include "flanterm/src/flanterm_backends/fb.h"
 #include "interrupts/isr.h"
 #include "fs/ahci_driver.h"
-#include "interrupts/multitasking.h"
-#include "interrupts/scheduler.h"
 #include "datandtime.h"
 #include "info/cpuinfo.h"
 #include "interrupts/timer.h"
@@ -29,7 +27,6 @@
 #include "mem/heap.h"
 #include "shell/shell_enhanced.h"
 #include "storage/storage.h"
-#include "user/user_enhanced.h"
 #include "rtl8139/rtl8139.h"
 #include <limine.h>
 
@@ -168,12 +165,10 @@ void kmain(void) {
     remap_pic(0x20, 0x28);
     init_idt();
     timer_init(600000000ULL);
-    pit_init(100); 
-    pit_test(); 
+    pit_init(100);
+    pit_test();
     printf("Sleepin \n");
     timer_sleep_ms(3000);
-    multitasking_init();
-    scheduler_init();
     enable_interrupts();
     
     ps2_kbio_init();
@@ -193,7 +188,6 @@ void kmain(void) {
         printf("Mounting FAT32...\n");
         bool mounted = fat32_mount(2048, false);
         printf("FAT32 mount: %s\n", mounted ? "OK" : "FAILED");
-        user_init();
     }
     
     serial_io_printf("DEBUG: Before shell\n");

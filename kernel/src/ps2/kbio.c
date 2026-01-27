@@ -6,7 +6,6 @@
 #include "../interrupts/isr.h"
 #include "../interrupts/pic.h"
 #include "../gfx/printf.h"
-#include "../interrupts/multitasking.h"
 #include "io.h"
 
 #define string_copy strcpy
