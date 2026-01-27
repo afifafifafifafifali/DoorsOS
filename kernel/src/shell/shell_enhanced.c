@@ -8,14 +8,11 @@
 #include "../fs/ahci_driver.h"
 #include "../interrupts/timer.h"
 #include "../mem/new/pmm.h"
-#include "../user/user_enhanced.h"
 #include "../info/meminfo.h"
 #include "sghsc_logo.h"
 #include "../snake.h"
 #include "gui/colorama.h"
 #include "gui/windows.h"
-#include "../interrupts/test_scheduler.h"
-#include "../interrupts/test_counter.h"
 #include "../vm/test_vm.h"
 #include "../vm/loader.h"
 #include "../vm/assembler.h"
@@ -34,14 +31,12 @@ static void cmd_help(void) {
     printf("  rm <file>    - Delete file\n");
     printf("  pwd          - Print working directory\n");
     printf("  snake        - Play snake game\n");
-    printf("  testpipe     - Test multitasking & pipes\n");
-    printf("  counter      - Test counter with pipes\n");
     printf("  vm           - Test VM calculator\n");
     printf("  vmloop       - Test VM loop\n");
     printf("  exec <file>  - Execute bytecode program\n");
     printf("  asm [file]   - Assemble and run program\n");
     printf("  build <src> <out> - Assemble to bytecode file\n");
-    printf("  mem, tasks, run <task>, time, reboot\n");
+    printf("  mem, time, reboot\n");
 }
 
 static void cmd_clear(void) {
@@ -113,16 +108,6 @@ static void cmd_mem(void) {
 
 static void cmd_time(void) {
     printf("Uptime: %llu seconds\n", timer_get_ticks() / 1000);
-}
-
-static void cmd_tasks(void) {
-    user_list_tasks();
-}
-
-static void cmd_run(const char* name) {
-    if (!user_run_task(name)) {
-        printf("Unknown task: %s\n", name);
-    }
 }
 
 static void cmd_reboot(void) {
@@ -403,10 +388,6 @@ void shell_run(void) {
             cmd_mem();
         } else if (strcmp(cmd, "time") == 0) {
             cmd_time();
-        } else if (strcmp(cmd, "tasks") == 0) {
-            cmd_tasks();
-        } else if (strcmp(cmd, "run") == 0) {
-            cmd_run(arg);
         } else if (strcmp(cmd, "reboot") == 0) {
             cmd_reboot();
         } else if (strcmp(cmd, "pwd") == 0) {
@@ -434,10 +415,6 @@ void shell_run(void) {
             snake_run();
         }else if(strcmp(cmd,"doorsfetch") == 0){
             print_doors_logo();
-        } else if (strcmp(cmd, "testpipe") == 0) {
-            test_multitasking_pipes();
-        } else if (strcmp(cmd, "counter") == 0) {
-            test_counter();
         } else if (strcmp(cmd, "vm") == 0) {
             test_vm();
         } else if (strcmp(cmd, "vmloop") == 0) {

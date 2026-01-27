@@ -3,10 +3,7 @@
 #include "../ps2/io.h"
 #include "isr.h"
 #include "pic.h"
-#include "scheduler.h"
 #include <stdbool.h>
-
-extern bool scheduler_enabled;
 
 static uint64_t cpu_frequency_hz = 0;
 static uint64_t timer_ticks = 0;
@@ -46,9 +43,6 @@ uint64_t timer_get_ticks(void) {
 static void timer_irq_handler(interrupt_frame_t* frame) {
     (void)frame;
     timer_ticks++;
-    if (scheduler_enabled) {
-        scheduler_tick();
-    }
     send_eoi_to_irq(0);
 }
 
