@@ -59,12 +59,32 @@ void pit_init(uint32_t freq) {
 void pit_test(void) {
     printf("PIT Test: Starting 3-second timer test...\n");
     uint64_t start_ticks = timer_ticks;
-    
+
     while ((timer_ticks - start_ticks) < 300) {
         asm volatile("pause");
     }
-    
+
     uint64_t elapsed_ticks = timer_ticks - start_ticks;
     printf("PIT Test: Expected 300 ticks, got %llu ticks\n", elapsed_ticks);
     printf("PIT Test: %s\n", (elapsed_ticks >= 290 && elapsed_ticks <= 310) ? "PASS" : "FAIL");
 }
+
+// HERTZ ONLY 
+uint64_t measure_cpu_frequency_with_pit(void) {
+    uint64_t start_ticks = timer_ticks;
+    uint64_t start_tsc = rdtsc();
+
+    while ((timer_ticks - start_ticks) < 100) {
+        asm volatile("pause");
+    }
+
+    uint64_t end_tsc = rdtsc();
+    uint64_t tsc_delta = end_tsc - start_tsc;
+
+    uint64_t measured_freq = tsc_delta; 
+
+    
+
+    return measured_freq;
+}
+

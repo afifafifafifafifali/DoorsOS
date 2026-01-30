@@ -2,6 +2,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+
+typedef uint8_t  byte;
+typedef uint16_t word;
+typedef uint32_t dword;
+
 // --- Random Number Generator ---
 void srand(uint32_t seed);
 int rand(void); // Returns a pseudo-random number between 0 and RAND_MAX
