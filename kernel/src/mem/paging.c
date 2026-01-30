@@ -17,7 +17,7 @@ uint64_t readCR3(void) {
 }
 
 PageTable* initPML4() {
-    uintptr_t cr3 = readCR3();
+    uintptr_t cr3 = readCR3(); // CRISTINO ROILDO
     uintptr_t phys_pml4 = cr3 & ~0xFFFUL;
     uintptr_t hhdm = hhdm_request.response->offset;
     pml4 = (PageTable*)(hhdm + phys_pml4);
@@ -40,28 +40,28 @@ void setPageTableEntry(PageEntry* entry, uint8_t flags, uintptr_t physical_addre
 }
 
 static void allocateEntry(PageTable* table, size_t index, uint8_t flags) {
-    // serial_io_printf("allocateEntry: index=%lu\n", index);
+     serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM] allocateEntry: index=%lu\n", index);
     void* virt_addr = allocator_malloc(4096);
     if (!virt_addr) {
-        // serial_io_printf("allocateEntry: k_malloc failed\n");
+         serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] allocateEntry: k_malloc failed\n");
         while(1) __asm__("hlt");
     }
-    // serial_io_printf("allocateEntry: virt_addr=%p\n", virt_addr);
+     serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] allocateEntry: virt_addr=%p\n", virt_addr);
     
     uintptr_t hhdm = hhdm_request.response->offset;
     uintptr_t phys_addr = (uintptr_t)virt_addr - hhdm;
-    // serial_io_printf("allocateEntry: phys_addr=0x%lx\n", phys_addr);
+     serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] allocateEntry: phys_addr=0x%lx\n", phys_addr);
     
     setPageTableEntry(&(table->entries[index]), flags, phys_addr >> 12, 0);
     
     for (int i = 0; i < 4096; i++) {
         ((uint8_t*)virt_addr)[i] = 0;
     }
-    // serial_io_printf("allocateEntry: done\n");
+    serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] allocateEntry: done\n");
 }
 
 void mapPage(void* virtual_address, void* physical_address, uint8_t flags) {
-    // serial_io_printf("mapPage called: virt=%p phys=%p\n", virtual_address, physical_address);
+    serial_io_printf("[ SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] mapPage called: virt=%p phys=%p\n", virtual_address, physical_address);
     
     uintptr_t virtual_address_int = (uintptr_t)virtual_address;
     uintptr_t physical_address_int = (uintptr_t)physical_address;

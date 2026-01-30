@@ -28,6 +28,7 @@
 #include "shell/shell_enhanced.h"
 #include "storage/storage.h"
 #include "rtl8139/rtl8139.h"
+#include "acpi.h"
 #include <limine.h>
 
 // Limine base revision = 3
@@ -158,19 +159,37 @@ void kmain(void) {
     
     setMemoryMap(4);
     allocator_init();
+
     initPML4();
-    
+
     __asm__ volatile ("cli");
     initiateGDT();
     remap_pic(0x20, 0x28);
     init_idt();
-    timer_init(600000000ULL);
+    //timer_init(600000000ULL);
     pit_init(100);
     pit_test();
-    printf("Sleepin \n");
-    timer_sleep_ms(3000);
+
+    //timer_sleep_ms(3000);
+
+    // Initialize ACPI after paging is set up but before enabling interrupts
+    //init_acpi();  // Commented out to prevent page fault
+
+    serial_io_printf("INT START\n");
     enable_interrupts();
-    
+    serial_io_printf("INT end\n");
+
+    clk_speed = measure_cpu_frequency_with_pit();
+    serial_io_printf("%llu \n",clk_speed);
+ serial_io_printf("Initializing ACPI...\n");
+if (acpiInit() == 0) {
+    acpiEnable();
+} else {
+    serial_io_printf("Skipping ACPI\n");
+}
+  //return_cpu();
+    //serial_io_printf(" %s \n %llu \n", vendor, memory_amount);  //PF happens here
+
     ps2_kbio_init();
     serial_io_printf("DEBUG: Before rtl8139_init\n");
     rtl8139_init();
@@ -180,6 +199,7 @@ void kmain(void) {
     
     // auto-detect storage (checks boot sector)
     storage_init();
+
     
     printf("Storage init done!\n");
     serial_io_printf("DEBUG: After storage_init\n");
@@ -194,7 +214,11 @@ void kmain(void) {
 
     printf("\n");
     serial_io_printf("DEBUG: Starting shell\n");
+
+    // Initialize ACPI after basic system initialization
+    //init_acpi();  // Removed to prevent page faults
+
     shell_run();
-    
+
     hcf();
 }

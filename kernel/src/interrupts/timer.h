@@ -8,5 +8,6 @@ void timer_sleep_ms(uint64_t ms);
 uint64_t timer_get_ticks(void);
 void pit_init(uint32_t freq);
 void pit_test(void);
+uint64_t measure_cpu_frequency_with_pit(void);
 
 #endif

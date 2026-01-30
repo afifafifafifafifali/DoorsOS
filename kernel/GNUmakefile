@@ -57,6 +57,7 @@ override CFLAGS += \
     -ffunction-sections \
     -fdata-sections \
     -m64 \
+    -fno-pie \
     -march=x86-64 \
     -mno-red-zone \
     -mcmodel=kernel
@@ -80,6 +81,7 @@ override LDFLAGS += \
     -m elf_x86_64 \
     -nostdlib \
     -static \
+    -no-pie \
     -z max-page-size=0x1000 \
     -gc-sections \
     -T linker.ld

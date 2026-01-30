@@ -343,12 +343,12 @@ static void cmd_mkfile(const char* filename) {
 }
 
 void print_doors_logo() {
-    printf("________                             ________    _________\n");
-    printf("\\______ \\   ____   ___________  _____\\_____  \\  /   _____/\n");
-    printf(" |    |  \\ /  _ \\ /  _ \\_  __ \\/  ___//   |   \\ \\_____  \\ \n");
-    printf(" |    `   (  <_> |  <_> )  | \\/\\___ \\/    |    \\/        \\\n");
-    printf("/_______  /\\____/ \\____/|__|  /____  >_______  /_______  /\n");
-    printf("        \\/                         \\/        \\/        \\/ \n");
+    kprint_color("________                             ________    _________\n",0x006400,true,0x000000,true);
+    kprint_color("\\______ \\   ____   ___________  _____\\_____  \\  /   _____/\n",0x006400,true,0x000000,true);
+    kprint_color(" |    |  \\ /  _ \\ /  _ \\_  __ \\/  ___//   |   \\ \\_____  \\ \n",0x006400,true,0x000000,true);
+    kprint_color(" |    `   (  <_> |  <_> )  | \\/\\___ \\/    |    \\/        \\\n",0x006400,true,0x000000,true);
+    kprint_color("/_______  /\\____/ \\____/|__|  /____  >_______  /_______  /\n",0x006400,true,0x000000,true);
+    kprint_color("        \\/                         \\/        \\/        \\/ \n",0x006400,true,0x000000,true);
 }
 
 void shell_run(void) {
@@ -419,7 +419,10 @@ void shell_run(void) {
             test_vm();
         } else if (strcmp(cmd, "vmloop") == 0) {
             test_vm_loop();
-        } else if (strcmp(cmd, "exec") == 0) {
+        } else if(strcmp(cmd,"echo") == 0) {
+            printf("%s \n",arg);
+        }
+        else if (strcmp(cmd, "exec") == 0) {
             if (arg) run_program(arg);
             else printf("Usage: exec <filename>\n");
         } else if (strcmp(cmd, "asm") == 0) {
