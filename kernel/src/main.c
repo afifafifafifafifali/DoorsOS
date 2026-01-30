@@ -187,7 +187,7 @@ if (acpiInit() == 0) {
 } else {
     serial_io_printf("Skipping ACPI\n");
 }
-  //return_cpu();
+  return_cpu();
     //serial_io_printf(" %s \n %llu \n", vendor, memory_amount);  //PF happens here
 
     ps2_kbio_init();

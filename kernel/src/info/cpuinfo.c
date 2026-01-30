@@ -2,21 +2,18 @@
 #include "../bootloader.h"
 #include "../gfx/serial_io.h"
 #include "../libs/string.h"
+#include "../gfx/printf.h"
 #include <stdint.h>
 
-
-/* Limine requests */
 extern volatile struct limine_mp_request smp_request;
 extern volatile struct limine_memmap_request memmap_request;
 extern volatile struct limine_hhdm_request hhdm_request;
 
-/* Global storage (safe for early boot) */
 char vendor[100] = {0};
 char brand[49] = {0}; // global to avoid stack issues
 int detected = 0;
 uint64_t memory_amount = 0;
 
-/* Safe CPUID wrapper: no RBX tricks, uses only 32-bit registers */
 static inline void cpuid(uint32_t leaf,
                          uint32_t *a,
                          uint32_t *b,
@@ -37,19 +34,20 @@ static inline void cpuid(uint32_t leaf,
 }
 
 void return_cpu(void) {
-    /* -------- CPU COUNT -------- */
     if (!smp_request.response) {
         detected = 1; // fallback: BSP only
     } else {
         detected = smp_request.response->cpu_count;
     }
 
-    /* -------- CPU BRAND STRING (GLOBAL ONLY) -------- */
+    serial_io_printf("MEMSETTING\n");
     memset(brand, 0, sizeof(brand));
-
+    serial_io_printf("INITING EAX\n");
     uint32_t eax, ebx, ecx, edx;
+    serial_io_printf("EXECUTION OF CPUID \n");
     cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
-
+    serial_io_printf("EXECUTION OF CPUID edn \n");
+    serial_io_printf("Copypasintg \n");
     if (eax >= 0x80000004) {
         uint32_t *p = (uint32_t *)brand;
         for (uint32_t i = 0; i < 3; i++) {
@@ -57,30 +55,49 @@ void return_cpu(void) {
             p += 4;
         }
     } else {
-        strcpy(brand, "Unknown CPU");
+        strcpy(brand, "Adolf Hitler National CPU Company ak47 @ 67Ghz");
     }
 
-    /* Safe copy to vendor */
+    serial_io_printf("SAFE COpy\n");
     strcpy(vendor, brand);
 
-    /* -------- MEMORY SIZE (HHDM SAFE) -------- */
-    memory_amount = 0;
+    serial_io_printf("%s \n",brand);
 
-    if (memmap_request.response && hhdm_request.response) {
-        uint64_t hhdm = hhdm_request.response->offset;
+    serial_io_printf("memsizen");
+   memory_amount = 0;
 
-        for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {
-            struct limine_memmap_entry *entry =
-                (struct limine_memmap_entry *)((uint64_t)
-                    memmap_request.response->entries[i] + hhdm);
+if (memmap_request.response && hhdm_request.response) {
+    uintptr_t hhdm = hhdm_request.response->offset;
 
-            if (entry->type == LIMINE_MEMMAP_USABLE) {
-                memory_amount += entry->length;
-            }
+    for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {
+        serial_io_printf("RAW MEAT\n");
+        struct limine_memmap_entry *entry_ptr = memmap_request.response->entries[i];
+
+        serial_io_printf("virt addr\n");
+        struct limine_memmap_entry *entry = (struct limine_memmap_entry *)(
+            ((uintptr_t)entry_ptr < 0x100000000ULL) ? ((uintptr_t)entry_ptr + hhdm) : (uintptr_t)entry_ptr
+        );
+
+        serial_io_printf("SUMMM\n");
+        if ((uintptr_t)entry < 0xFFFF800000000000 || (uintptr_t)entry > 0xFFFFFFFFFFFFFFFF)
+            continue;
+
+        if (entry->type == LIMINE_MEMMAP_USABLE) {
+            memory_amount += entry->length;
         }
-
-        memory_amount /= (1024 * 1024); // bytes → MB
     }
+
+    memory_amount /= (1024 * 1024); // convert bytes -> MB
+    if(memory_amount < 890){
+        serial_io_printf("HALT: Those MF AI ate too much RAM. Please feed kernel more memory.(minimum 890MB for stability)\n");
+        printf("HALT: Those MF AI ate too much RAM. Please feed kernel more memory.(minimum 890MB for stability)\n");
+        while(1){
+            asm("hlt");
+        }
+    }
+    serial_io_printf("%llu MB of memory YUM\n",memory_amount);
+}
+
 }
 
 void print_cpu_info(void) {
