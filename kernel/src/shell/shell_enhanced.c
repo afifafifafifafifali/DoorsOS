@@ -9,6 +9,7 @@
 #include "../interrupts/timer.h"
 #include "../mem/new/pmm.h"
 #include "../info/meminfo.h"
+#include "../info/cpuinfo.h"
 #include "sghsc_logo.h"
 #include "../snake.h"
 #include "gui/colorama.h"
@@ -100,10 +101,7 @@ static void print_size(const char* label, uint64_t bytes) {
 }
 
 static void cmd_mem(void) {
-    struct meminfo info = get_memory_info();
-    print_size("Total Memory", info.total_memory);
-    print_size("Free Memory", info.free_memory);
-    print_size("Used Memory", info.used_memory);
+    printf("Total Memory: %llu MB\n", memory_amount);
 }
 
 static void cmd_time(void) {
@@ -344,8 +342,10 @@ static void cmd_mkfile(const char* filename) {
 
 void print_doors_logo() {
     kprint_color("________                             ________    _________\n",0x006400,true,0x000000,true);
-    kprint_color("\\______ \\   ____   ___________  _____\\_____  \\  /   _____/\n",0x006400,true,0x000000,true);
-    kprint_color(" |    |  \\ /  _ \\ /  _ \\_  __ \\/  ___//   |   \\ \\_____  \\ \n",0x006400,true,0x000000,true);
+    kprint_color("\\______ \\   ____   ___________  _____\\_____  \\  /   _____/",0x006400,true,0x000000,true);
+    printf("            CPU Name: %s \n",vendor);
+    kprint_color(" |    |  \\ /  _ \\ /  _ \\_  __ \\/  ___//   |   \\ \\_____  \\ ",0x006400,true,0x000000,true);
+    printf("            RAM Amount: %llu  MB \n",memory_amount);
     kprint_color(" |    `   (  <_> |  <_> )  | \\/\\___ \\/    |    \\/        \\\n",0x006400,true,0x000000,true);
     kprint_color("/_______  /\\____/ \\____/|__|  /____  >_______  /_______  /\n",0x006400,true,0x000000,true);
     kprint_color("        \\/                         \\/        \\/        \\/ \n",0x006400,true,0x000000,true);
