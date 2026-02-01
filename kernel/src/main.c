@@ -241,7 +241,7 @@ serial_io_printf("FADT revision: %u, PM1a_CNT: 0x%x\n",
                  fadt->hdr.revision,
                  fadt->pm1a_cnt_blk);
 
-outw(fadt->pm1a_cnt_blk, (1 << 13) | (fadt->s4bios_req ? (1 << 10) : 0)); // ACPI shutdown
+// outw(fadt->pm1a_cnt_blk, (1 << 13) | (fadt->s4bios_req ? (1 << 10) : 0)); // ACPI shutdown
 
     ps2_kbio_init();
     serial_io_printf("DEBUG: Before rtl8139_init\n");
