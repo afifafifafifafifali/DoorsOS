@@ -9,7 +9,10 @@
 #include "datandtime.h"
 #include "info/cpuinfo.h"
 #include "interrupts/timer.h"
+#include "uacpi/kernel_api.h"
 #include "math.h"
+#include "uacpi/tables.h"
+#include "uacpi/acpi.h"
 #include "interrupts/pic.h"
 #include "bootloader.h"
 #include "mem/new/pmm.h"
@@ -28,8 +31,11 @@
 #include "shell/shell_enhanced.h"
 #include "storage/storage.h"
 #include "rtl8139/rtl8139.h"
-#include "acpi.h"
+#include "uacpi/uacpi.h"
 #include <limine.h>
+
+
+
 
 // Limine base revision = 3
 __attribute__((used, section(".limine_requests")))
@@ -175,20 +181,67 @@ void kmain(void) {
     // Initialize ACPI after paging is set up but before enabling interrupts
     //init_acpi();  // Commented out to prevent page fault
 
+
+
     serial_io_printf("INT START\n");
     enable_interrupts();
     serial_io_printf("INT end\n");
 
     clk_speed = measure_cpu_frequency_with_pit();
     serial_io_printf("%llu \n",clk_speed);
- serial_io_printf("Initializing ACPI...\n");
-if (acpiInit() == 0) {
-    acpiEnable();
-} else {
-    serial_io_printf("Skipping ACPI\n");
-}
   return_cpu();
     //serial_io_printf(" %s \n %llu \n", vendor, memory_amount);  //PF happens here
+
+    static uint8_t table_buffer[4096];
+
+    uacpi_status status =
+        uacpi_setup_early_table_access(
+            table_buffer, sizeof(table_buffer)
+        );
+
+    if (status != UACPI_STATUS_OK) {
+        serial_io_printf("uACPI early setup failed: %d\n", status);
+    }
+
+    uacpi_phys_addr rsdp_phys;
+    status = uacpi_kernel_get_rsdp(&rsdp_phys);
+
+    if (status != UACPI_STATUS_OK) {
+        serial_io_printf("RSDP not found!\n");
+    }
+
+    /* Map ACPI 1.0 size first */
+    struct acpi_rsdp *rsdp =
+        (struct acpi_rsdp *)uacpi_kernel_map(rsdp_phys, 20);
+
+    if (!rsdp) {
+        serial_io_printf("Failed to map RSDP\n");
+    }
+
+    /* ACPI 2.0+ → remap full table */
+    if (rsdp->revision >= 2) {
+        rsdp = (struct acpi_rsdp *)uacpi_kernel_map(
+            rsdp_phys, rsdp->length
+        );
+
+        if (!rsdp) {
+            serial_io_printf("Failed to remap full RSDP\n");
+        }
+    }
+
+    serial_io_printf("ACPI revision: %u\n", rsdp->revision);
+  static struct acpi_fadt *fadt;
+
+uacpi_status st = uacpi_table_find_by_signature(
+    ACPI_FADT_SIGNATURE,
+    (struct acpi_sdt_header **)&fadt
+);
+
+serial_io_printf("FADT revision: %u, PM1a_CNT: 0x%x\n",
+                 fadt->hdr.revision,
+                 fadt->pm1a_cnt_blk);
+
+outw(fadt->pm1a_cnt_blk, (1 << 13) | (fadt->s4bios_req ? (1 << 10) : 0)); // ACPI shutdown
 
     ps2_kbio_init();
     serial_io_printf("DEBUG: Before rtl8139_init\n");
