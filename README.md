@@ -35,7 +35,10 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Add fat32 write
 * [X]  Add a PMM, PCI, And rpoper mapPage driver
 * [X]  Add DateAndTime support
-* [ ]  Add VFS
+* [X]  Add uACPI Barebones
+* [X]  Shutdown using FACP
+* [ ]  Add Multitasking
+* [ ]  Add Userspace
 * [ ]  Add ELF support
 * [ ]  Add Linux headers(Optional)
 * [ ]  Add Mouse
