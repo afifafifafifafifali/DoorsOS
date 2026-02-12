@@ -4,7 +4,7 @@
 #include "heap.h"
 #include "../bootloader.h"
 
-static PageTable* pml4;
+volatile PageTable* pml4;
 
 void flushTLB(void* page) {
     __asm__ volatile ("invlpg (%0)" :: "r" (page) : "memory");
