@@ -43,6 +43,7 @@ typedef struct PageTable {
     PageEntry entries[512];
 } PageTable;
 
+extern volatile PageTable* pml4;
 void flushTLB(void* page);
 void* getPhysicalAddress(void* virtual_address); 
 PageTable* initPML4(void); 

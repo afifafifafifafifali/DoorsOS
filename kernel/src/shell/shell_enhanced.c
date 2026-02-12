@@ -2,6 +2,7 @@
 #include "../gfx/term.h"
 #include "../ps2/kbio.h"
 #include "../ps2/io.h"
+#include "../fadt_head.h"
 #include "../libs/string.h"
 #include "../storage/storage.h"
 #include "../fs/fat32.h"
@@ -17,6 +18,8 @@
 #include "../vm/test_vm.h"
 #include "../vm/loader.h"
 #include "../vm/assembler.h"
+#include "../tasks/task.h"
+
 
 static char current_dir[256] = "/";
 
@@ -114,6 +117,9 @@ static void cmd_reboot(void) {
     outb(0x64, 0xFE);
 }
 
+static void cmd_shutdown(void){
+    //outw(pm1a_cnt_blk, (1 << 13) | (s4bios_req ? (1 << 10) : 0));
+}
 static void cmd_pwd(void) {
     printf("%s\n", current_dir);
 }
@@ -354,16 +360,20 @@ void print_doors_logo() {
 void shell_run(void) {
     printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
     printf("Type 'help' for commands\n\n");
-    
+
+    serial_io_printf("Staring\n");
+
     while (1) {
-        printf("%s $ ", current_dir);
         
+        
+        printf("%s $ ", current_dir);
+
         char input[256];
         char* result = ps2_kbio_read(input, 255);
-        if (!result) continue;
-        
+        if (!result) yield();
+
         printf("\n");
-        
+
         char* cmd = result;
         char* arg = strchr(result, ' ');
         if (arg) {
@@ -371,7 +381,7 @@ void shell_run(void) {
             arg++;
             while (*arg == ' ') arg++;
         }
-        
+
         if (strlen(cmd) == 0) {
             // Empty
         } else if (strcmp(cmd, "help") == 0) {
@@ -415,7 +425,12 @@ void shell_run(void) {
             snake_run();
         }else if(strcmp(cmd,"doorsfetch") == 0){
             print_doors_logo();
-        } else if (strcmp(cmd, "vm") == 0) {
+        } else if(strcmp(cmd,"shutdown") == 0){
+             return 0;
+            // Here,it does not work t all!
+             //outw(pm1a_cnt_blk, (1 << 13) | (s4bios_req ? (1 << 10) : 0)); // Why tf this shit works in kernel.c file..
+        }
+         else if (strcmp(cmd, "vm") == 0) {
             test_vm();
         } else if (strcmp(cmd, "vmloop") == 0) {
             test_vm_loop();
@@ -440,7 +455,7 @@ void shell_run(void) {
                     while (*out == ' ') out++;
                     assemble_to_file(arg, out);
                 } else {
-                    printf("Usage: build <source.asm> <output.bc>\n");
+                    printf("Usage: build <source.asm> <output.asm> <output.bc>\n");
                 }
             } else {
                 printf("Usage: build <source.asm> <output.bc>\n");
@@ -448,7 +463,7 @@ void shell_run(void) {
         } else {
             printf("Unknown: %s\n", cmd);
         }
-        
+
         k_free(result);
     }
 }

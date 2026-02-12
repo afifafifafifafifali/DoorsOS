@@ -7,6 +7,7 @@
 #include "../interrupts/pic.h"
 #include "../gfx/printf.h"
 #include "io.h"
+#include "../tasks/task.h"
 
 #define string_copy strcpy
 #define string_length strlen
@@ -167,17 +168,18 @@ string_t ps2_kbio_read(string_t buffStr, size_t buffSize) {
     input_finished = false;
     inputBuffer[0] = '\0';
 
+    // Busy-wait loop with voluntary yielding
     while (!input_finished) {
-        asm volatile("hlt");
+        asm("hlt");
     }
 
+    // Once Enter was pressed
     string_t result = malloc(bufferPos + 1);
     if (result) {
-        string_copy(result, inputBuffer);
+        strcpy(result, inputBuffer);
     }
 
-    reset_keyboard_input_state();  // <- Reset state cleanly here.
-
+    reset_keyboard_input_state();
     return result;
 }
 string_t ps2_kbio_read_enhanced(string_t buffStr, size_t buffSize, int* cursor_y) {

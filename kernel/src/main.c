@@ -8,6 +8,7 @@
 #include "fs/ahci_driver.h"
 #include "datandtime.h"
 #include "info/cpuinfo.h"
+#include "fadt_head.h"
 #include "interrupts/timer.h"
 #include "uacpi/kernel_api.h"
 #include "math.h"
@@ -33,9 +34,20 @@
 #include "rtl8139/rtl8139.h"
 #include "uacpi/uacpi.h"
 #include <limine.h>
+#include "tasks/task.h"
 
 
-
+struct acpi_sdt_header {
+    char     signature[4];
+    uint32_t length;
+    uint8_t  revision;
+    uint8_t  checksum;
+    char     oem_id[6];
+    char     oem_table_id[8];
+    uint32_t oem_revision;
+    uint32_t creator_id;
+    uint32_t creator_revision;
+};
 
 // Limine base revision = 3
 __attribute__((used, section(".limine_requests")))
@@ -137,6 +149,64 @@ static void hcf(void) {
     }
 }
 
+static bool aml_find_s5(uint8_t *aml, uint32_t len,
+                        uint8_t *s5a, uint8_t *s5b)
+{
+    for (uint32_t i = 0; i + 8 < len; i++) {
+        if (aml[i] == '_' &&
+            aml[i+1] == 'S' &&
+            aml[i+2] == '5' &&
+            aml[i+3] == '_') {
+
+            uint8_t *p = &aml[i+4];
+
+            // Skip NameOp if present
+            if (*p == 0x08) p++;
+
+            // Must be PackageOp
+            if (*p != 0x12) continue;
+            p++;
+
+            // Skip package length byte(s)
+            if (*p & 0x80)
+                p += (*p & 0x3F);
+            else
+                p++;
+
+            // Must be 2-element package
+            if (*p != 0x02) continue;
+            p++;
+
+            // First integer
+            if (*p == 0x0A) p++;  // BytePrefix
+            *s5a = *p++;
+
+            // Second integer
+            if (*p == 0x0A) p++;
+            *s5b = *p++;
+
+            return true;
+        }
+    }
+    return false;
+}
+
+// Test task 1
+void test_task_1(void) {
+    while(1) {
+        serial_io_printf("Task 1 running...\n");
+        task_yield(); // Yield to other tasks
+    }
+}
+
+// Test task 2
+void test_task_2(void) {
+    while(1) {
+        serial_io_printf("Task 2 running...\n");
+        task_yield(); // Yield to other tasks
+    }
+}
+
 void kmain(void) {
     // ---------------Who ever types code in this area is gay except sse---------------------------
     enable_sse();
@@ -173,8 +243,7 @@ void kmain(void) {
     remap_pic(0x20, 0x28);
     init_idt();
     //timer_init(600000000ULL);
-    pit_init(100);
-    pit_test();
+    
 
     //timer_sleep_ms(3000);
 
@@ -186,7 +255,11 @@ void kmain(void) {
     serial_io_printf("INT START\n");
     enable_interrupts();
     serial_io_printf("INT end\n");
-
+    serial_io_printf("initing pit \n");
+    pit_init(100);
+    serial_io_printf("pit test \n");
+    pit_test();
+    serial_io_printf("Measure freq\n");
     clk_speed = measure_cpu_frequency_with_pit();
     serial_io_printf("%llu \n",clk_speed);
   return_cpu();
@@ -230,8 +303,8 @@ void kmain(void) {
     }
 
     serial_io_printf("ACPI revision: %u\n", rsdp->revision);
-  static struct acpi_fadt *fadt;
-
+  
+struct acpi_fadt *fadt;
 uacpi_status st = uacpi_table_find_by_signature(
     ACPI_FADT_SIGNATURE,
     (struct acpi_sdt_header **)&fadt
@@ -241,7 +314,6 @@ serial_io_printf("FADT revision: %u, PM1a_CNT: 0x%x\n",
                  fadt->hdr.revision,
                  fadt->pm1a_cnt_blk);
 
-// outw(fadt->pm1a_cnt_blk, (1 << 13) | (fadt->s4bios_req ? (1 << 10) : 0)); // ACPI shutdown
 
     ps2_kbio_init();
     serial_io_printf("DEBUG: Before rtl8139_init\n");
@@ -263,15 +335,17 @@ serial_io_printf("FADT revision: %u, PM1a_CNT: 0x%x\n",
         printf("FAT32 mount: %s\n", mounted ? "OK" : "FAILED");
     }
     
+    serial_io_printf("DEBUG: Before tasking init\n");
+
+
     serial_io_printf("DEBUG: Before shell\n");
 
     printf("\n");
     serial_io_printf("DEBUG: Starting shell\n");
 
-    // Initialize ACPI after basic system initialization
-    //init_acpi();  // Removed to prevent page faults
+    initTasking();
 
-    shell_run();
-
+    //shell_run();
+    //outw(pm1a_cnt_blk, (1 << 13) | (s4bios_req ? (1 << 10) : 0)); // Why tf this shit works in kernel..
     hcf();
 }
