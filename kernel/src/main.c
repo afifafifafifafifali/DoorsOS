@@ -342,7 +342,9 @@ serial_io_printf("FADT revision: %u, PM1a_CNT: 0x%x\n",
 
     printf("\n");
     serial_io_printf("DEBUG: Starting shell\n");
-
+    kprint("\e[2J\e[H");
+    printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
+    printf("Type 'help' for commands\n\n");
     initTasking();
 
     //shell_run();

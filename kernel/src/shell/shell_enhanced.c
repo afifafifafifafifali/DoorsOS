@@ -358,12 +358,11 @@ void print_doors_logo() {
 }
 
 void shell_run(void) {
-    printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
-    printf("Type 'help' for commands\n\n");
+    
 
     serial_io_printf("Staring\n");
 
-    while (1) {
+    //while (1) {
         
         
         printf("%s $ ", current_dir);
@@ -465,5 +464,5 @@ void shell_run(void) {
         }
 
         k_free(result);
-    }
+    // }
 }
