@@ -12,11 +12,22 @@ typedef struct Registers
 	uint64_t cr3;
 }__attribute__((packed)) Registers;
 
+typedef enum {
+    TASK_READY,
+    TASK_RUNNING,
+    TASK_BLOCKED,
+    TASK_DEAD
+} task_state_t;
+
 typedef struct Task 
 {
-	Registers regs;
-	struct Task* next;
-}__attribute__((packed)) Task;
+    Registers regs;
+    struct Task* next;
+    struct Task* prev;      // add this
+    task_state_t state;     // add this
+    uint64_t slice;         // add this
+} __attribute__((packed)) Task;
+
 
 typedef struct TSSDescriptor {
 	uint16_t limit1;
@@ -49,6 +60,7 @@ typedef struct TSS
 	uint16_t reserved4;	
 	uint16_t io_map_address;	
 }__attribute__((packed)) TSS;
+extern  Task *runningTask;
 
 static bool needs_yield = false;
 static uint64_t last_switch_tick = 0;
