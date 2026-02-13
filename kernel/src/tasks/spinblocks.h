@@ -43,6 +43,8 @@ static inline void spin_lock(spinlock_t *lock) {
     }
 }
 
+
+
 static inline void spin_unlock(spinlock_t *lock) {
     atomic_flag_clear_explicit(&lock->flag, memory_order_release);
 }

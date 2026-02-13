@@ -45,9 +45,16 @@ static void timer_irq_handler(interrupt_frame_t* frame) {
     (void)frame;
     timer_ticks++;
 
-    if ((timer_get_ticks() - last_switch_tick) >= 5) {
-        needs_yield = true;
+   if (runningTask != NULL) {
+        if (runningTask->slice > 0) {
+            runningTask->slice--;
+        }
+
+        if (runningTask->slice == 0) {
+            needs_yield = true;
+        }
     }
+
 
     send_eoi_to_irq(0);
 

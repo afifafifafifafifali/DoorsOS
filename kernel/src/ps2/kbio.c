@@ -170,6 +170,11 @@ string_t ps2_kbio_read(string_t buffStr, size_t buffSize) {
 
     // Busy-wait loop with voluntary yielding
     while (!input_finished) {
+        if (runningTask->slice == 0) {
+        yield();
+    } else {
+        runningTask->slice--;
+    }
         asm("hlt");
     }
 
@@ -192,6 +197,11 @@ string_t ps2_kbio_read_enhanced(string_t buffStr, size_t buffSize, int* cursor_y
     while (index < buffSize - 1) {
         while (!(inb(PS2_STATUS_PORT) & 1)) {
             // Wait for key press
+            if (runningTask->slice == 0) {
+        yield();
+    } else {
+        runningTask->slice--;
+    }
         }
         
         scancode = inb(PS2_DATA_PORT);
