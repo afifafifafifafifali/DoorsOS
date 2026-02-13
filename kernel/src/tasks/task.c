@@ -6,7 +6,7 @@
 #include "../interrupts/timer.h"
 
 #define term_write serial_io_printf
-#define TASK_SLICE_DEFAULT 50  // now each task gets 50 ticks
+#define TASK_SLICE_DEFAULT 50  // 50 ticks
 
 Task *runningTask;
 static Task mainTask;
@@ -14,9 +14,8 @@ static Task otherTask;
 static Task shellTask;
 static Task random;
 
-extern void switchTask(Registers* from, Registers* to);
+extern void switchTask(Registers* from, Registers* to); // task.asm
 
-// --- Cooperative yield ---
 void yield() 
 {
     Task *prev = runningTask;
@@ -32,7 +31,6 @@ void yield()
     switchTask(&prev->regs, &runningTask->regs);
 }
 
-// --- Preemptive check (call from timer/loops) ---
 void preempt_check() 
 {
     if (!runningTask) return;
@@ -44,7 +42,6 @@ void preempt_check()
     }
 }
 
-// --- Core task creation ---
 void createTask(Task *task, void (*main)(), uint64_t flags, uint64_t cr3)
 {
     task->regs.rax = 0;
@@ -73,36 +70,32 @@ void createTask(Task *task, void (*main)(), uint64_t flags, uint64_t cr3)
     task->slice      = TASK_SLICE_DEFAULT;
 }
 
-// --- Kill a task (kernel only) ---
 void taskKill(Task *task)
 {
     if (!task) return;
     task->state = TASK_DEAD;
 
-    // Unlink from run queue
     if (task->prev) task->prev->next = task->next;
     if (task->next) task->next->prev = task->prev;
 
     if (runningTask == task) {
-        yield(); // switch immediately
+        yield(); 
     }
 }
 
-// --- Create a task and add to run queue ---
 void taskCreate(Task *task, void (*main)())
 {
     createTask(task, main, mainTask.regs.rflags, mainTask.regs.cr3);
 
-    // Insert at end of run queue
     Task *tail = &mainTask;
     while (tail->next && tail->next != &mainTask) tail = tail->next;
 
     tail->next = task;
     task->prev = tail;
-    task->next = &mainTask; // circular
+    task->next = &random; 
 }
 
-// --- Example Tasks ---
+
 static void otherMain() 
 {
     while (1) {
@@ -126,10 +119,8 @@ static void idle_task()
     while (1) yield();
 }
 
-// --- Tasking Init ---
 void initTasking()
 {
-    // Save RFLAGS & CR3 from current context
     __asm__ volatile("movq %%cr3, %%rax; movq %%rax, %0;" : "=m"(mainTask.regs.cr3)::"%rax");
     __asm__ volatile("pushfq; movq (%%rsp), %%rax; movq %%rax, %0; popfq;" : "=m"(mainTask.regs.rflags)::"%rax");
 
@@ -137,7 +128,6 @@ void initTasking()
     createTask(&random, idle_task, mainTask.regs.rflags, mainTask.regs.cr3);
     createTask(&shellTask, shellMain, mainTask.regs.rflags, mainTask.regs.cr3);
 
-    // Setup circular run queue
     mainTask.next     = &otherTask;
     otherTask.next    = &random;
     random.next       = &shellTask;
@@ -150,6 +140,5 @@ void initTasking()
     runningTask = &mainTask;
     runningTask->state = TASK_RUNNING;
 
-    // Enter multitasking
     yield();
 }
