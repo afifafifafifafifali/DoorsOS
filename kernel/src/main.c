@@ -35,6 +35,7 @@
 #include "uacpi/uacpi.h"
 #include <limine.h>
 #include "tasks/task.h"
+#include "syscall/syscall.h"
 
 
 struct acpi_sdt_header {
@@ -336,7 +337,9 @@ serial_io_printf("FADT revision: %u, PM1a_CNT: 0x%x\n",
     }
     
     serial_io_printf("DEBUG: Before tasking init\n");
-
+    serial_io_printf("DEBUG: Before syscall\n");
+    syscall_init();
+    printf("Syscalls initialized\n");
 
     serial_io_printf("DEBUG: Before shell\n");
 

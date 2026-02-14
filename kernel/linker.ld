@@ -34,6 +34,8 @@ SECTIONS
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
     .text : {
+        /* Syscall entry at the beginning of .text for easy access */
+        *(.syscall_entry)
         *(.text .text.*)
     } :text
 

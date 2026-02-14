@@ -15,10 +15,8 @@
 #include "../snake.h"
 #include "gui/colorama.h"
 #include "gui/windows.h"
-#include "../vm/test_vm.h"
-#include "../vm/loader.h"
-#include "../vm/assembler.h"
 #include "../tasks/task.h"
+#include "../syscall/syscall.h"
 
 
 static char current_dir[256] = "/";
@@ -35,11 +33,6 @@ static void cmd_help(void) {
     printf("  rm <file>    - Delete file\n");
     printf("  pwd          - Print working directory\n");
     printf("  snake        - Play snake game\n");
-    printf("  vm           - Test VM calculator\n");
-    printf("  vmloop       - Test VM loop\n");
-    printf("  exec <file>  - Execute bytecode program\n");
-    printf("  asm [file]   - Assemble and run program\n");
-    printf("  build <src> <out> - Assemble to bytecode file\n");
     printf("  mem, time, reboot\n");
 }
 
@@ -426,39 +419,8 @@ void shell_run(void) {
             print_doors_logo();
         } else if(strcmp(cmd,"shutdown") == 0){
              return 0;
-            // Here,it does not work t all!
-             //outw(pm1a_cnt_blk, (1 << 13) | (s4bios_req ? (1 << 10) : 0)); // Why tf this shit works in kernel.c file..
-        }
-         else if (strcmp(cmd, "vm") == 0) {
-            test_vm();
-        } else if (strcmp(cmd, "vmloop") == 0) {
-            test_vm_loop();
         } else if(strcmp(cmd,"echo") == 0) {
             printf("%s \n",arg);
-        }
-        else if (strcmp(cmd, "exec") == 0) {
-            if (arg) run_program(arg);
-            else printf("Usage: exec <filename>\n");
-        } else if (strcmp(cmd, "asm") == 0) {
-            if (arg) assemble_file(arg);
-            else {
-                const char *prog = "PUSH 10\nPUSH 5\nADD\nPRINT\nHALT\n";
-                assemble_program(prog);
-            }
-        } else if (strcmp(cmd, "build") == 0) {
-            if (arg) {
-                char *space = strchr(arg, ' ');
-                if (space) {
-                    *space = '\0';
-                    char *out = space + 1;
-                    while (*out == ' ') out++;
-                    assemble_to_file(arg, out);
-                } else {
-                    printf("Usage: build <source.asm> <output.asm> <output.bc>\n");
-                }
-            } else {
-                printf("Usage: build <source.asm> <output.bc>\n");
-            }
         } else {
             printf("Unknown: %s\n", cmd);
         }

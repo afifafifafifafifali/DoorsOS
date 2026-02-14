@@ -1,8 +1,6 @@
 # What is DoorsOS 🚪?
 
-DoorsOS is an x86_64 POSIX-Compliant Limine-based operating system in C. An active effort of making a full OS, with a simple and readable codebase.
-
-> Built for the summer of making.(http://summer.hackclub.com/)
+DoorsOS is an x86_64 POSIX-Compliant Limine-based operating system in C. An active effort of making a full OS, with a simple and readable codebase.  [![DOI](https://zenodo.org/badge/1015985619.svg)](https://doi.org/10.5281/zenodo.18637986)
 
 # Preview of the OS
 

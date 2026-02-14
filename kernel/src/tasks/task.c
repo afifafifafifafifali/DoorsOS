@@ -42,33 +42,32 @@ void preempt_check()
     }
 }
 
+//#define STACK_SIZE 0xB000   // round number, page-ish
+const uint64_t STACK_SIZE = 0xAf1f;
 void createTask(Task *task, void (*main)(), uint64_t flags, uint64_t cr3)
 {
-    task->regs.rax = 0;
-    task->regs.rbx = 0;
-    task->regs.rcx = 0;
-    task->regs.rdx = 0;
-    task->regs.rsi = 0;
-    task->regs.rdi = 0;
-    task->regs.r8  = 0;
-    task->regs.r9  = 0;
-    task->regs.r10 = 0;
-    task->regs.r11 = 0;
-    task->regs.r12 = 0;
-    task->regs.r13 = 0;
-    task->regs.r14 = 0;
-    task->regs.r15 = 0;
+    memset(task, 0, sizeof(Task));
 
+    uint8_t *stack = k_malloc(STACK_SIZE);
+    if (!stack) {
+        serial_io_printf("STACK FAIL\n");
+        while (1);
+    }
+
+    uint64_t top = (uint64_t)(stack + STACK_SIZE);
+
+    // 16-byte align
+    top &= ~0xF;
+
+    task->regs.rip = (uint64_t)main;
+    task->regs.rsp = top;
     task->regs.rflags = flags;
-    task->regs.rip    = (uint64_t) main;
-    task->regs.cr3    = cr3;
-    task->regs.rsp    = ((uint64_t) k_malloc(0xAf1f) + 0xFFF) & ~0xF;
+    task->regs.cr3 = cr3;
 
-    task->next       = NULL;
-    task->prev       = NULL;
-    task->state      = TASK_READY;
-    task->slice      = TASK_SLICE_DEFAULT;
+    task->state = TASK_READY;
+    task->slice = TASK_SLICE_DEFAULT;
 }
+
 
 void taskKill(Task *task)
 {
@@ -85,15 +84,35 @@ void taskKill(Task *task)
 
 void taskCreate(Task *task, void (*main)())
 {
+    serial_io_printf("Inside taskCreate\n");
+
+    // Allocate stack
+     // 44 KB
+    uint8_t *stack_virt = (uint8_t*)0xFFFF800000900000; // pick safe high virtual memory
+
+    for (uint64_t addr = (uint64_t)stack_virt - STACK_SIZE; addr < (uint64_t)stack_virt; addr += 0x1000)
+    {
+        void *page = k_malloc(0x1000);
+        mapPage(addr, virt_to_phys(page), PAGE_PRESENT | PAGE_WRITE);
+    }
+
     createTask(task, main, mainTask.regs.rflags, mainTask.regs.cr3);
+    task->regs.rsp = (uint64_t)stack_virt; // top of stack
 
-    Task *tail = &mainTask;
-    while (tail->next && tail->next != &mainTask) tail = tail->next;
+    // Directly insert before random
+    Task *prev = random.prev;
+    if (!prev) prev = &mainTask; // fallback if random.prev not set
 
-    tail->next = task;
-    task->prev = tail;
-    task->next = &random; 
+    prev->next = task;
+    task->prev = prev;
+    task->next = &random;
+    random.prev = task;
+
+    serial_io_printf("Task safely linked before random\n");
+
+    // No yield here
 }
+
 
 
 static void otherMain() 
