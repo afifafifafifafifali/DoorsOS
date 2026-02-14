@@ -34,10 +34,9 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Add a PMM, PCI, And rpoper mapPage driver
 * [X]  Add DateAndTime support
 * [X]  Add uACPI Barebones
-* [X]  Shutdown using FACP
-* [ ]  Add Multitasking
-* [ ]  Add Userspace
-* [ ]  Add ELF support
+* [ ]  Shutdown
+* [X]  Add Multitasking
+* [X]  Add Syscalls (Syscall listener at ``0xD00F5AF1F``)
 * [ ]  Add Linux headers(Optional)
 * [ ]  Add Mouse
 * [ ]  Add Windows(not MS, the GUI )

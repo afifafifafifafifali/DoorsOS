@@ -11,7 +11,7 @@
 #define SYS_YIELD  6
 
 // Magic address where syscall pointer is stored
-#define SYSCALL_PTR_ADDR 0xCAFE000
+#define SYSCALL_PTR_ADDR 0xD00F5AF1F
 
 void syscall_init();
 uint64_t syscall_entry(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3);

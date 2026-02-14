@@ -139,6 +139,31 @@ static void blllM(){
 }
 
 
+typedef uint64_t (*syscall_t)(uint64_t, uint64_t, uint64_t, uint64_t);
+#define SYSCALL_PTR ((syscall_t*)0xD00F5AF1F)
+
+#include "../syscall/syscall.h"
+Task syscallTask;
+int sigma = 0;
+static void syscall_test_task()
+{
+    char buf[64];
+    syscall_t sc = *SYSCALL_PTR; // fetch syscall pointer
+
+    char *msg = "Hello via 0xD00F5AF1F!\n";
+    sc(SYS_WRITE, (uint64_t)msg, strlen(msg), 0);
+
+    sigma++;
+    if(sigma == 1){
+        taskKill(&syscallTask);
+    }
+    yield();
+
+    
+}
+
+
+
 // --- Tasking Init ---
 void initTasking()
 {
@@ -165,6 +190,7 @@ void initTasking()
 
 
     taskCreate(&blll,blllM);
+    taskCreate(&syscallTask, syscall_test_task);
     // Enter multitasking
     yield();
 

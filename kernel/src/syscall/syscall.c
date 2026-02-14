@@ -3,6 +3,7 @@
 #include "../tasks/task.h"
 #include "../ps2/kbio.h"
 #include "../mem/paging.h"
+#include "../gfx/serial_io.h"
 
 extern void* k_malloc(uint64_t size);
 
@@ -14,7 +15,7 @@ uint64_t syscall_entry(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3
             char *str = (char *)arg1;
             uint64_t len = arg2;
             for (uint64_t i = 0; i < len; i++) {
-                printf("%c", str[i]);
+                serial_io_printf("%c", str[i]);
             }
             return len;
         }
@@ -62,8 +63,8 @@ uint64_t phys = virt_to_phys(virt);
     serial_io_printf("SYSCAL::PTRING");
     *ptr = (uint64_t)syscall_entry;
     
-    printf("Syscalls initialized at 0x%lx (ptr at 0xCAFE000)\n", (uint64_t)syscall_entry);
-    serial_io_printf("SYSCALL PTR VALUE: 0x%lx\n", *(uint64_t*)0xCAFE000);
+    printf("Syscalls initialized at 0x%lx (ptr at 0xD00F5AF1F)\n", (uint64_t)syscall_entry);
+    serial_io_printf("SYSCALL PTR VALUE: 0x%lx\n", *(uint64_t*)0xD00F5AF1F);
 
 
 
