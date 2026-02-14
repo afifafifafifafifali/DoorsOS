@@ -66,7 +66,5 @@ static bool needs_yield = false;
 static uint64_t last_switch_tick = 0;
 void doIt();
 void initTasking();
-void taskKill(Task *task);
-void taskCreate(Task *task, void (*main)());
 
 #endif

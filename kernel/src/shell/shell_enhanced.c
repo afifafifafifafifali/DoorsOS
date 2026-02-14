@@ -407,7 +407,10 @@ void shell_run(void) {
             cmd_mkdir(arg);
         } else if (strcmp(cmd, "mkfile") == 0) {
             cmd_mkfile(arg);
-        } else if (strcmp(cmd, "rm") == 0) {
+        } else if(strcmp(cmd,"obama") == 0){
+            printf("GET RICKROLLED IN 2026\n");
+        } 
+        else if (strcmp(cmd, "rm") == 0) {
             cmd_rm(arg);
         } else if (strcmp(cmd, "rmdir") == 0) {
             cmd_rmdir(arg);

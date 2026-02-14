@@ -6,7 +6,7 @@
 #include "../interrupts/timer.h"
 
 #define term_write serial_io_printf
-#define TASK_SLICE_DEFAULT 50  // 50 ticks
+#define TASK_SLICE_DEFAULT 50  // now each task gets 50 ticks
 
 Task *runningTask;
 static Task mainTask;
@@ -14,8 +14,9 @@ static Task otherTask;
 static Task shellTask;
 static Task random;
 
-extern void switchTask(Registers* from, Registers* to); // task.asm
+extern void switchTask(Registers* from, Registers* to);
 
+// --- Cooperative yield ---
 void yield() 
 {
     Task *prev = runningTask;
@@ -31,6 +32,7 @@ void yield()
     switchTask(&prev->regs, &runningTask->regs);
 }
 
+// --- Preemptive check (call from timer/loops) ---
 void preempt_check() 
 {
     if (!runningTask) return;
@@ -42,79 +44,63 @@ void preempt_check()
     }
 }
 
-//#define STACK_SIZE 0xB000   // round number, page-ish
-const uint64_t STACK_SIZE = 0xAf1f;
+// --- Core task creation ---
 void createTask(Task *task, void (*main)(), uint64_t flags, uint64_t cr3)
 {
-    memset(task, 0, sizeof(Task));
+    task->regs.rax = 0;
+    task->regs.rbx = 0;
+    task->regs.rcx = 0;
+    task->regs.rdx = 0;
+    task->regs.rsi = 0;
+    task->regs.rdi = 0;
+    task->regs.r8  = 0;
+    task->regs.r9  = 0;
+    task->regs.r10 = 0;
+    task->regs.r11 = 0;
+    task->regs.r12 = 0;
+    task->regs.r13 = 0;
+    task->regs.r14 = 0;
+    task->regs.r15 = 0;
 
-    uint8_t *stack = k_malloc(STACK_SIZE);
-    if (!stack) {
-        serial_io_printf("STACK FAIL\n");
-        while (1);
-    }
-
-    uint64_t top = (uint64_t)(stack + STACK_SIZE);
-
-    // 16-byte align
-    top &= ~0xF;
-
-    task->regs.rip = (uint64_t)main;
-    task->regs.rsp = top;
     task->regs.rflags = flags;
-    task->regs.cr3 = cr3;
+    task->regs.rip    = (uint64_t) main;
+    task->regs.cr3    = cr3;
+    task->regs.rsp    = ((uint64_t) k_malloc(0xAf1f) + 0xFFF) & ~0xF;
 
-    task->state = TASK_READY;
-    task->slice = TASK_SLICE_DEFAULT;
+    task->next       = NULL;
+    task->prev       = NULL;
+    task->state      = TASK_READY;
+    task->slice      = TASK_SLICE_DEFAULT;
 }
 
-
+// --- Kill a task (kernel only) ---
 void taskKill(Task *task)
 {
     if (!task) return;
     task->state = TASK_DEAD;
 
+    // Unlink from run queue
     if (task->prev) task->prev->next = task->next;
     if (task->next) task->next->prev = task->prev;
 
     if (runningTask == task) {
-        yield(); 
+        yield(); // switch immediately
     }
 }
 
+// --- Create a task and add to run queue ---
 void taskCreate(Task *task, void (*main)())
 {
-    serial_io_printf("Inside taskCreate\n");
-
-    // Allocate stack
-     // 44 KB
-    uint8_t *stack_virt = (uint8_t*)0xFFFF800000900000; // pick safe high virtual memory
-
-    for (uint64_t addr = (uint64_t)stack_virt - STACK_SIZE; addr < (uint64_t)stack_virt; addr += 0x1000)
-    {
-        void *page = k_malloc(0x1000);
-        mapPage(addr, virt_to_phys(page), PAGE_PRESENT | PAGE_WRITE);
-    }
-
     createTask(task, main, mainTask.regs.rflags, mainTask.regs.cr3);
-    task->regs.rsp = (uint64_t)stack_virt; // top of stack
 
-    // Directly insert before random
-    Task *prev = random.prev;
-    if (!prev) prev = &mainTask; // fallback if random.prev not set
-
-    prev->next = task;
-    task->prev = prev;
-    task->next = &random;
-    random.prev = task;
-
-    serial_io_printf("Task safely linked before random\n");
-
-    // No yield here
+    
+    Task *tail = &random;
+    tail->next = task;
+    task->prev = tail;
+    task->next = &shellTask; // circular
 }
 
-
-
+// --- Example Tasks ---
 static void otherMain() 
 {
     while (1) {
@@ -138,8 +124,25 @@ static void idle_task()
     while (1) yield();
 }
 
+Task blll;
+static int ligma = 0;
+static void blllM(){
+    while (1){
+        serial_io_printf("PISS\n");
+        ligma++;
+        if(ligma == 10){
+        taskKill(&blll);
+    }
+        yield();  
+
+          }
+}
+
+
+// --- Tasking Init ---
 void initTasking()
 {
+    // Save RFLAGS & CR3 from current context
     __asm__ volatile("movq %%cr3, %%rax; movq %%rax, %0;" : "=m"(mainTask.regs.cr3)::"%rax");
     __asm__ volatile("pushfq; movq (%%rsp), %%rax; movq %%rax, %0; popfq;" : "=m"(mainTask.regs.rflags)::"%rax");
 
@@ -147,6 +150,7 @@ void initTasking()
     createTask(&random, idle_task, mainTask.regs.rflags, mainTask.regs.cr3);
     createTask(&shellTask, shellMain, mainTask.regs.rflags, mainTask.regs.cr3);
 
+    // Setup circular run queue
     mainTask.next     = &otherTask;
     otherTask.next    = &random;
     random.next       = &shellTask;
@@ -159,5 +163,10 @@ void initTasking()
     runningTask = &mainTask;
     runningTask->state = TASK_RUNNING;
 
+
+    taskCreate(&blll,blllM);
+    // Enter multitasking
     yield();
+
+    
 }

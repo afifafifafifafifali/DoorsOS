@@ -38,9 +38,7 @@ uint64_t syscall_entry(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3
         
         case SYS_EXIT:
             printf("Program exited with code %ld\n", arg1);
-            if (runningTask) {
-                taskKill(runningTask);
-            }
+            
             return 0;
         
         case SYS_YIELD:
