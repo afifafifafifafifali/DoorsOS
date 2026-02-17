@@ -8,6 +8,9 @@
 #include "../gui/colorama.h"
 
 
+
+void (*interrupt_handlers[256])(interrupt_frame_t* frame) = {0};
+
 // Default exception messages
 const char* exception_messages[] = {
     "Division By Zero",
@@ -70,7 +73,7 @@ void irq_handler(interrupt_frame_t* frame) {
     if (interrupt_handlers[frame->int_no])
         interrupt_handlers[frame->int_no](frame);
     else
-        printf("Unhandled IRQ: %d\n", frame->int_no);
+        serial_io_printf("\n \n Unhandled IRQ: %d\n", frame->int_no);
 }
 
 void register_irq_handler(uint8_t interrupt, void (*handler)(interrupt_frame_t* frame)) {

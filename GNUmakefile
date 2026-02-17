@@ -76,6 +76,7 @@ run-idk-hdd: $(IMAGE_NAME).hdd disk.img
 run-hdd-ahci: $(IMAGE_NAME).hdd
 	clear
 	qemu-system-x86_64.exe \
+		-machine pc-i440fx-4.2\
 		-cpu qemu64,+sse,+sse2 \
 		-drive id=disk,file=$(IMAGE_NAME).hdd,format=raw,if=none \
 		-device ahci,id=ahci \

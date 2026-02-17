@@ -1,107 +1,112 @@
 #include "mouse.h"
-#include "../gfx/printf.h"
-#include "../gfx/term.h"
-#include "../interrupts/isr.h"
 #include "io.h"
+#include "../interrupts/pic.h"
+#include "../interrupts/idt.h"
+#include "../interrupts/isr.h"
+#include "../gfx/serial_io.h"
 
-static mouse_state_t mouse_state = {400, 300, 0}; // Start in center
-static uint8_t mouse_cycle = 0;
-static int8_t mouse_packet[3];
+byte mouse_cycle = 0;
+sbyte mouse_byte[3];
+sbyte mouse_x = 0;
+sbyte mouse_y = 0;
 
-// Simple white cursor pattern (11x16)
-static const char cursor_pattern[16][12] = {
-    "X          ",
-    "XX         ",
-    "X.X        ",
-    "X..X       ",
-    "X...X      ",
-    "X....X     ",
-    "X.....X    ",
-    "X......X   ",
-    "X.......X  ",
-    "X........X ",
-    "X.....XXXXX",
-    "X..X...X   ",
-    "X.X X..X   ",
-    "XX  X..X   ",
-    "X    X.X   ",
-    "     XX    "
-};
-
-void mouse_draw_cursor(void) {
-    // Simple white X cursor
-    kprint("X");
-}
-
-void mouse_update_cursor(int16_t dx, int16_t dy) {
-    // Update position
-    mouse_state.x += dx;
-    mouse_state.y += dy;
-    
-    // Clamp to screen bounds
-    if (mouse_state.x < 0) mouse_state.x = 0;
-    if (mouse_state.y < 0) mouse_state.y = 0;
-    if (mouse_state.x > 800) mouse_state.x = 800;
-    if (mouse_state.y > 250) mouse_state.y = 250;
-    
-    // Show cursor movement
-    kprint("X");
-}
-
-void mouse_init(void) {
-    outb(0x64, 0xA8);
-    outb(0x64, 0x20);
-    uint8_t status = inb(0x60) | 2;
-    outb(0x64, 0x60);
-    outb(0x60, status);
-    
-    outb(0x64, 0xD4);
-    outb(0x60, 0xF6);
-    inb(0x60);
-    
-    outb(0x64, 0xD4);
-    outb(0x60, 0xF4);
-    inb(0x60);
-    
-    printf("Mouse initialized\n");
-}
-
-void mouse_handler(void) {
-    uint8_t data = inb(0x60);
-    
-    switch (mouse_cycle) {
+void mouse_handler(interrupt_frame_t* frame)
+{
+    switch (mouse_cycle)
+    {
         case 0:
-            mouse_packet[0] = data;
-            if (!(data & 0x08)) return;
+            mouse_byte[0] = inb(0x60);
             mouse_cycle++;
             break;
+
         case 1:
-            mouse_packet[1] = data;
+            mouse_byte[1] = inb(0x60);
             mouse_cycle++;
             break;
+
         case 2:
-            mouse_packet[2] = data;
+            mouse_byte[2] = inb(0x60);
+
+            mouse_x = mouse_byte[1];
+            mouse_y = mouse_byte[2];
+
+            serial_io_printf("Mouse: X=%d Y=%d\n", mouse_x, mouse_y);
+
             mouse_cycle = 0;
-            
-            mouse_state.buttons = mouse_packet[0] & 0x07;
-            
-            // Update cursor with movement
-            int16_t dx = mouse_packet[1];
-            int16_t dy = -mouse_packet[2]; // Invert Y
-            
-            if (dx != 0 || dy != 0) {
-                mouse_update_cursor(dx / 4, dy / 4); // Scale down movement
-            }
-            
             break;
+    }
+
+    serial_io_printf("IRQ12 fired\n");
+
+    outb(0xA0, 0x20);  // first slave
+outb(0x20, 0x20);  // then master
+
+}
+
+
+static inline void mouse_wait(byte type)
+{
+    dword timeout = 100000;
+
+    if (type == 0)
+    {
+        while (timeout--)
+        {
+            if (inb(0x64) & 1)
+                return;
+        }
+    }
+    else
+    {
+        while (timeout--)
+        {
+            if (!(inb(0x64) & 2))
+                return;
+        }
     }
 }
 
-mouse_state_t* mouse_get_state(void) {
-    return &mouse_state;
+static inline void mouse_write(byte data)
+{
+    mouse_wait(1);
+    outb(0x64, 0xD4);
+
+    mouse_wait(1);
+    outb(0x60, data);
 }
 
-void mouse_irq_handler(interrupt_frame_t* frame) {
-    (void)frame; // Unused parameter
-    mouse_handler();
+byte mouse_read()
+{
+    mouse_wait(0);
+    return inb(0x60);
+}
+
+void mouse_install()
+{
+   unsigned char _status;  //unsigned char
+    
+    mouse_write(0xFF);
+    mouse_read();
+
+ 
+  //Enable the interrupts
+  mouse_wait(1);
+  outb(0x64, 0x20);
+  mouse_wait(0);
+   _status=inb(0x60);          
+   _status = (_status | 2) ;
+  mouse_wait(1);
+  outb(0x64, 0x60);
+  mouse_wait(1);
+  outb(0x60, _status);
+ mouse_read();
+ 
+ 
+ 
+  //Enable the mouse
+  mouse_write(0xF4);
+  mouse_read();  //Acknowledge
+
+  register_irq_handler(44,mouse_handler);
+
 }

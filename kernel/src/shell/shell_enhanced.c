@@ -284,6 +284,9 @@ static void cmd_nano(const char* filename) {
         k_free(input);
     }
 }
+#include "../ps2/mouse.h"
+
+
 
 static void cmd_mkfile(const char* filename) {
     if (!filename) {
@@ -386,7 +389,10 @@ void shell_run(void) {
             cmd_ahcitest();
         } else if (strcmp(cmd, "fat32test") == 0) {
             cmd_fat32test();
-        } else if (strcmp(cmd, "mem") == 0) {
+        } else if (strcmp(cmd,"mousepos") == 0){
+            //locate_mouse_position();
+        } 
+        else if (strcmp(cmd, "mem") == 0) {
             cmd_mem();
         } else if (strcmp(cmd, "time") == 0) {
             cmd_time();

@@ -6,6 +6,7 @@
 typedef uint8_t  byte;
 typedef uint16_t word;
 typedef uint32_t dword;
+typedef signed char sbyte;
 
 // --- Random Number Generator ---
 void srand(uint32_t seed);

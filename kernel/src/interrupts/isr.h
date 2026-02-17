@@ -12,7 +12,7 @@ typedef struct interrupt_frame_t {
 } __attribute__((packed)) interrupt_frame_t;
 
 
-static inline void (*interrupt_handlers[256])(interrupt_frame_t* frame) = {0};
+extern void (*interrupt_handlers[256])(interrupt_frame_t* frame);
 
 void exception_handler(interrupt_frame_t* frame);
 void register_irq_handler(uint8_t interrupt, void (*handler) (interrupt_frame_t* frame));

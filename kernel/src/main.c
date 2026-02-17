@@ -36,6 +36,8 @@
 #include <limine.h>
 #include "tasks/task.h"
 #include "syscall/syscall.h"
+#include "ps2/mouse.h"
+
 
 
 struct acpi_sdt_header {
@@ -254,6 +256,9 @@ void kmain(void) {
 
 
     serial_io_printf("INT START\n");
+    clear_mask_for_irq(2);   // Master cascade
+    clear_mask_for_irq(12); // Your PIC code
+    mouse_install();
     enable_interrupts();
     serial_io_printf("INT end\n");
     serial_io_printf("initing pit \n");
@@ -340,15 +345,20 @@ serial_io_printf("FADT revision: %u, PM1a_CNT: 0x%x\n",
     serial_io_printf("DEBUG: Before syscall\n");
     syscall_init();
     printf("Syscalls initialized\n");
+    
 
     serial_io_printf("DEBUG: Before shell\n");
 
     printf("\n");
     serial_io_printf("DEBUG: Starting shell\n");
     kprint("\e[2J\e[H");
-    printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
-    printf("Type 'help' for commands\n\n");
-    initTasking();
+    //printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
+    //printf("Type 'help' for commands\n\n");
+    while(1){
+        // hpe that mouse does something;it doesnt
+        mouse_read();
+    }
+    //initTasking();
 
     //shell_run();
     //outw(pm1a_cnt_blk, (1 << 13) | (s4bios_req ? (1 << 10) : 0)); // Why tf this shit works in kernel..
