@@ -76,6 +76,7 @@ void irq_handler(interrupt_frame_t* frame) {
         serial_io_printf("\n \n Unhandled IRQ: %d\n", frame->int_no);
 }
 
-void register_irq_handler(uint8_t interrupt, void (*handler)(interrupt_frame_t* frame)) {
+void register_irq_handler(uint8_t interrupt, void (*handler)(interrupt_frame_t* frame), char name[100]) {
     interrupt_handlers[interrupt] = handler;
+    serial_io_printf("interrupt_handler[%llu ] = %llx , requested from : %s\n",interrupt,(uint64_t)handler,name);
 }

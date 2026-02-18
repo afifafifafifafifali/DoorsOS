@@ -15,7 +15,7 @@ typedef struct interrupt_frame_t {
 extern void (*interrupt_handlers[256])(interrupt_frame_t* frame);
 
 void exception_handler(interrupt_frame_t* frame);
-void register_irq_handler(uint8_t interrupt, void (*handler) (interrupt_frame_t* frame));
+void register_irq_handler(uint8_t interrupt, void (*handler)(interrupt_frame_t* frame), char name[100]);
 void irq_handler(interrupt_frame_t* frame);
 
 #endif

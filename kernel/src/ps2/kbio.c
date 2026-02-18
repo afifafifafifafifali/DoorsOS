@@ -57,6 +57,7 @@ static size_t bufferSize = 0;
 static bool input_finished = false;
 
 void keyboard_irq_handler(interrupt_frame_t* frame) {
+    serial_io_printf("Keyboard IRQ fired\n");
     (void)frame;
 
     if (input_finished) {
@@ -136,7 +137,7 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
 }
 
 void ps2_kbio_init(void) {
-    register_irq_handler(33, keyboard_irq_handler);
+    register_irq_handler(33, keyboard_irq_handler,"keyboard");
     uint8_t mask = inb(0x21);
     mask &= ~(1 << 1);
     outb(0x21, mask);

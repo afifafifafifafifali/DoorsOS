@@ -21,3 +21,6 @@ void outl(uint16_t port, uint32_t value);
 void io_wait(void);
 void insw(uint16_t port, void *addr, size_t count);
 void outsw(uint16_t port, const void *addr, size_t count);
+
+ uint64_t rdmsr(uint32_t msr);
+ void wrmsr(uint32_t msr, uint64_t value);

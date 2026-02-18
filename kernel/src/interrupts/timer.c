@@ -5,6 +5,7 @@
 #include "pic.h"
 #include <stdbool.h>
 #include "../tasks/task.h"
+#include "../gfx/serial_io.h"
 
 static uint64_t cpu_frequency_hz = 0;
 static uint64_t timer_ticks = 0;
@@ -42,6 +43,7 @@ uint64_t timer_get_ticks(void) {
 }
 
 static void timer_irq_handler(interrupt_frame_t* frame) {
+    
     (void)frame;
     timer_ticks++;
 
@@ -67,7 +69,7 @@ void pit_init(uint32_t freq) {
     outb(0x43, 0x36);
     outb(0x40, divisor & 0xFF);
     outb(0x40, (divisor >> 8) & 0xFF);
-    register_irq_handler(32, timer_irq_handler);
+    register_irq_handler(32, timer_irq_handler,"pit");
     clear_mask_for_irq(0);
     printf("PIT initialized at %u Hz (divisor: %u)\n", freq, divisor);
 }
