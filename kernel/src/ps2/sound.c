@@ -63,6 +63,7 @@ static inline void pit_set_freq(uint32_t freq) {
     outb(PIT_FREQ_PORT, (divisor >> 8) & 0xFF);
 }
 
+
 static inline void speaker_on(void) {
     uint8_t tmp = inb(SPEAKER_PORT);
     if (!(tmp & 3))
@@ -84,8 +85,6 @@ void sound_play(uint32_t freq, uint32_t ms) {
 
     pit_set_freq(freq);
     speaker_on();
-
-    // Use your OS timer for accurate delay
     timer_sleep_ms(ms);
 
     speaker_off();

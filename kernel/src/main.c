@@ -202,6 +202,7 @@ void kmain(void) {
 
     serial_io_printf("PS/2 OK\n");
 
+    printMemoryMaps();
     /* ========== Storage ========== */
 
     storage_init();
