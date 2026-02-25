@@ -1,82 +1,123 @@
 #include "isr.h"
-#include "../gfx/term.h"
-#include "../libs/string.h"
 #include "../gfx/printf.h"
 #include "../gfx/serial_io.h"
-#include "../ps2/io.h"
-#include "../gui/windows.h"
-#include "../gui/colorama.h"
-
-
+#include "../interrupts/pic.h"
 
 void (*interrupt_handlers[256])(interrupt_frame_t* frame) = {0};
 
-// Default exception messages
-const char* exception_messages[] = {
+static const char* exception_messages[] = {
     "Division By Zero",
     "Debug",
     "Non Maskable Interrupt",
     "Breakpoint",
-    "Into Detected Overflow",
-    "Out of Bounds",
+    "Overflow",
+    "Bound Range Exceeded",
     "Invalid Opcode",
-    "No Coprocessor",
-
+    "Device Not Available",
     "Double Fault",
     "Coprocessor Segment Overrun",
-    "Bad TSS",
+    "Invalid TSS",
     "Segment Not Present",
     "Stack Fault",
     "General Protection Fault",
-    "Page Fault",              // 14
-    "Unknown Interrupt",
-
-    "Coprocessor Fault",
+    "Page Fault",
+    "Reserved",
+    "x87 Floating Point",
     "Alignment Check",
     "Machine Check",
-    "SIMD Floating-Point Exception",
-    "Virtualization Exception",
-    "Control Protection Exception",
-    "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved"
+    "SIMD Floating Point",
+    "Virtualization",
+    "Control Protection",
+    "Reserved","Reserved","Reserved","Reserved",
+    "Reserved","Reserved","Reserved","Reserved",
+    "Reserved","Reserved"
 };
 
+// ==========================================
+// EXCEPTION HANDLER (0–31)
+// ==========================================
 
+void exception_handler(interrupt_frame_t* frame)
+{
+    uint64_t vec = frame->int_no;
 
-void exception_handler(interrupt_frame_t* frame) {
-    char buf[756];
+    printf("\n\n=== KERNEL EXCEPTION ===\n");
 
-    snprintf(buf, sizeof(buf), "AH SHIT![EXCEPTION] Interrupt: %llu ", frame->int_no);
-    kprint_color(buf, COLOR_RGB_RED, true, COLOR_RGB_BLACK, true);
-    printf("\n");
-    serial_io_printf("%s\n", buf);
+    if (vec < 32){
+        printf("Vector %llu: %s\n", vec, exception_messages[vec]);serial_io_printf("Vector %llu: %s\n", vec, exception_messages[vec]);
+    }else{
+        printf("Vector %llu: Unknown\n", vec);serial_io_printf("Vector %llu: Unknown\n", vec);}
 
-    snprintf(buf, sizeof(buf),
-        "RAX=0x%016llx RBX=0x%016llx RCX=0x%016llx RDX=0x%016llx\n"
-        "RSI=0x%016llx RDI=0x%016llx RBP=0x%016llx RSP=0x%016llx\n"
-        "R8 =0x%016llx R9 =0x%016llx R10=0x%016llx R11=0x%016llx\n"
-        "R12=0x%016llx R13=0x%016llx R14=0x%016llx R15=0x%016llx\n"
-        "ERR=0x%016llx CS=0x%04llx RIP=0x%016llx RFLAGS=0x%016llx\n KERNEL STOP! PANIC",
-        frame->rax, frame->rbx, frame->rcx, frame->rdx,
-        frame->rsi, frame->rdi, frame->rbp, frame->rsp,
-        frame->r8, frame->r9, frame->r10, frame->r11,
-        frame->r12, frame->r13, frame->r14, frame->r15,
-        frame->err_code, frame->cs, frame->rip, frame->rflags
-    );
-    kprint_color(buf, COLOR_RGB_RED, true, COLOR_RGB_BLACK, true);
-    serial_io_printf("%s\n", buf);
+    printf("RIP:    0x%016llx\n", frame->rip);serial_io_printf("RIP:    0x%016llx\n", frame->rip);
+    printf("RSP:    0x%016llx\n", frame->rsp);serial_io_printf("RSP:    0x%016llx\n", frame->rsp);
+    printf("ERR:    0x%016llx\n", frame->err_code);serial_io_printf("ERR:    0x%016llx\n", frame->err_code);
+    printf("RFLAGS: 0x%016llx\n", frame->rflags);serial_io_printf("RFLAGS: 0x%016llx\n", frame->rflags);
 
-    while (1) asm volatile("cli; hlt");
+    printf("\nRegisters:\n");serial_io_printf("\nRegisters:\n");
+    printf("RAX=%016llx RBX=%016llx RCX=%016llx RDX=%016llx\n",
+           frame->rax, frame->rbx, frame->rcx, frame->rdx);
+    serial_io_printf("RAX=%016llx RBX=%016llx RCX=%016llx RDX=%016llx\n",
+           frame->rax, frame->rbx, frame->rcx, frame->rdx);
+
+    printf("RSI=%016llx RDI=%016llx RBP=%016llx\n",
+           frame->rsi, frame->rdi, frame->rbp);
+    serial_io_printf("RSI=%016llx RDI=%016llx RBP=%016llx\n",
+           frame->rsi, frame->rdi, frame->rbp);
+
+    printf("R8 =%016llx R9 =%016llx R10=%016llx R11=%016llx\n",
+           frame->r8, frame->r9, frame->r10, frame->r11);
+    serial_io_printf("R8 =%016llx R9 =%016llx R10=%016llx R11=%016llx\n",
+           frame->r8, frame->r9, frame->r10, frame->r11);
+
+    printf("R12=%016llx R13=%016llx R14=%016llx R15=%016llx\n",
+           frame->r12, frame->r13, frame->r14, frame->r15);
+    serial_io_printf("R12=%016llx R13=%016llx R14=%016llx R15=%016llx\n",
+           frame->r12, frame->r13, frame->r14, frame->r15);
+    
+    uint64_t fault_addr;
+    __asm__ volatile("mov %%cr2, %0" : "=r"(fault_addr));
+
+    serial_io_printf("CR2:    0x%016llx\n", fault_addr);
+
+    serial_io_printf(".text(current output location counter address)  lives at: 0xffffffff80000000\n");
+    printf("\nSystem halted.\n");
+
+    while (1)
+        asm volatile("cli; hlt");
 }
 
+// ==========================================
+// IRQ HANDLER (32–47)
+// ==========================================
 
-void irq_handler(interrupt_frame_t* frame) {
-    if (interrupt_handlers[frame->int_no])
-        interrupt_handlers[frame->int_no](frame);
+
+void irq_handler(interrupt_frame_t* frame)
+{
+    
+    uint8_t vector = (uint8_t)frame->int_no;
+    if(vector == 44){
+        serial_io_printf("Oh,hi mr mouse\n");
+    }
+    if (interrupt_handlers[vector])
+        interrupt_handlers[vector](frame);
     else
-        serial_io_printf("\n \n Unhandled IRQ: %d\n", frame->int_no);
+        serial_io_printf("Unhandled IRQ: %u\n", vector);
+
+    uint8_t irq = vector - 32;
+
+    if (irq < 16)
+        send_eoi_to_irq(irq);
 }
 
-void register_irq_handler(uint8_t interrupt, void (*handler)(interrupt_frame_t* frame), char name[100]) {
+
+//==========================================
+//REGISTER IRQ HANDLER
+//==========================================
+
+void register_irq_handler(uint8_t interrupt,
+                          void (*handler)(interrupt_frame_t*),
+                          char name[100])
+{
     interrupt_handlers[interrupt] = handler;
-    serial_io_printf("interrupt_handler[%llu ] = %llx , requested from : %s\n",interrupt,(uint64_t)handler,name);
+    serial_io_printf("IRQ %u registered by %s\n", interrupt, name);
 }

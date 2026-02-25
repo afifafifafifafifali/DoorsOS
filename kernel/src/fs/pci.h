@@ -209,9 +209,9 @@ static inline void pci_enumerate(void (*callback)(uint8_t, uint8_t, uint8_t, pci
 }
 
 #include "../gfx/printf.h" // or whatever you're using for printf
-
+#include "../gfx/serial_io.h"
 static inline void lspci_device(uint8_t bus, uint8_t device, uint8_t function, pci_device_t* dev) {
-    printf("PCI %02x:%02x.%x  Vendor: %04x  Device: %04x  Class: %02x  Subclass: %02x  ProgIF: %02x\n",
+    serial_io_printf("PCI %02x:%02x.%x  Vendor: %04x  Device: %04x  Class: %02x  Subclass: %02x  ProgIF: %02x\n",
         bus, device, function,
         dev->vendor_id,
         dev->device_id,

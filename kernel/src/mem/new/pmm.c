@@ -118,52 +118,19 @@ uint64_t virt_to_phys(void* virt_addr) {
     return (uint64_t)virt_addr - HHDM_BASE;
 }
 
-// ------------------------------
-// Buddy-like Allocator (Recursive)
-// ------------------------------
-static void* b_malloc(uint64_t* base, size_t length, size_t size) {
-    if (length <= BLOCK_SIZE) {
-        if (size + 1 <= length && *((uint64_t*) base) == 0) {
-            *base = size;
-            memset(base + 1, 0, sizeof(void*) * size);
-            return (void*) (base + 1);
-        }
-        return NULL;
-    }
+#include "../heap.h"
 
-    size_t half = length / 2;
-
-    if (half <= size + 1 && *((uint64_t*) base) == 0) {
-        *base = size;
-        memset(base + 1, 0, sizeof(void*) * size);
-        return (void*) (base + 1);
-    } else if (half > size) {
-        void* b = b_malloc(base, half, size);
-        if (b == NULL) {
-            b = b_malloc(base + half, half, size);
-        }
-        return b;
-    }
-
-    return NULL;
-}
-
-
-// ------------------------------
-// Kernel Memory Allocation API
-// ------------------------------
 void* k_malloc(size_t size) {
-    void* virt_base = phys_to_virt(memmap->base);
-    return b_malloc((uint64_t*) virt_base, memmap->length, size);
+    if (size == 0) return NULL;
+    void *ptr = malloc(size);
+    if (ptr) memset(ptr, 0, size);
+    return ptr;
 }
 
 void k_free(void* base) {
-    uint64_t size = *(((uint64_t*) base) - 1);
-    memset(base, 0, size);
+   if(base) free(base);
 }
 
 void init_pmm(void) {
-    void* virt_base = phys_to_virt(memmap->base);
-    DS_Bitmap *bitmap = (DS_Bitmap *)virt_base;
-    memset(bitmap, 0, sizeof(DS_Bitmap));
+   
 }

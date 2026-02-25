@@ -7,8 +7,8 @@
 #include "../helpers.h"
 #include "../log.h"
 
-#define UACPI_BAREBONES_MODE
-#define UACPI_REDUCED_HARDWARE
+//#define UACPI_BAREBONES_MODE
+
 /*
  * =======================
  * Context-related options

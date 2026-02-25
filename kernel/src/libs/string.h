@@ -8,11 +8,10 @@ typedef char *string_t; // For convenience, can be used as a string type
 
 // Implemented in main.c
 
-
-void *memcpy(void *dest, const void *src, size_t n);
+void *memcpy(void *restrict dest, const void *restrict src, size_t n);
 
 void *memset(void *s, int c, size_t n);
-void *memmove(void *dest, const void *src, size_t n);
+void *memmove(void *dstptr, const void *srcptr, size_t size);
 int memcmp(const void *s1, const void *s2, size_t n);
 
 // Included in string.c

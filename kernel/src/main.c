@@ -38,6 +38,12 @@
 #include "tasks/task.h"
 #include "syscall/syscall.h"
 #include "ps2/mouse.h"
+#include "uacpi/uacpi.h"
+#include "uacpi/event.h"
+#include "uacpi/sleep.h" // to tell the system to shut the fuck down
+
+
+
 
 /* ===================================================== */
 /* ================= LIMINE SETUP ====================== */
@@ -74,6 +80,18 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     return 0;
 }
 
+void *memmove(void *dstptr, const void *srcptr, size_t size) {
+  unsigned char       *dst = (unsigned char *)dstptr;
+  const unsigned char *src = (const unsigned char *)srcptr;
+  if (dst < src) {
+    for (size_t i = 0; i < size; i++)
+      dst[i] = src[i];
+  } else {
+    for (size_t i = size; i != 0; i--)
+      dst[i - 1] = src[i - 1];
+  }
+  return dstptr;
+}
 
 
 /* ===================================================== */
@@ -102,6 +120,21 @@ static inline void write_cr4(uint64_t v) {
     asm volatile("mov %0,%%cr4" :: "r"(v));
 }
 
+
+void shutthefuckdown(void){
+    uacpi_status ret = uacpi_prepare_for_sleep_state(UACPI_SLEEP_STATE_S5);
+    if (uacpi_unlikely_error(ret)) {
+        serial_io_printf("failed to prepare for sleep: %s\n", uacpi_status_to_string(ret));
+        
+    }
+    asm("cli");
+    ret = uacpi_enter_sleep_state(UACPI_SLEEP_STATE_S5);
+    if (uacpi_unlikely_error(ret)) {
+        serial_io_printf("failed to enter sleep: %s\n", uacpi_status_to_string(ret));
+        
+    }
+    serial_io_printf("Should never reach here\n");
+}
 /* ===================================================== */
 /* ==================== SSE ============================ */
 /* ===================================================== */
@@ -181,32 +214,53 @@ void kmain(void) {
 
     remap_pic(0x20, 0x28);
 
+    
+    mouse_install();
+    ps2_kbio_init();
+    pit_init(100);
     init_idt();
-
-    /* Disable LAPIC */
-    wrmsr(0x1B, rdmsr(0x1B) & ~(1ULL << 11));
 
     asm volatile("sti");
 
     printf("Interrupts Ready\n");
 
-    /* ========== PIT ========== */
+    timer_sleep_ms(3100);
+    serial_io_printf("Ticks: %llu \n",timer_get_ticks());
 
-    pit_init(100);   // 100Hz scheduler
-    printf("PIT Online\n");
+    uacpi_status ret = uacpi_initialize(0);
 
-    /* ========== PS/2 ========== */
+    if (uacpi_unlikely_error(ret)) {
+        serial_io_printf("\n\n yea,i am jobless \n\n");
+    }
 
-    ps2_kbio_init();
-    mouse_install();
+     ret = uacpi_namespace_load();
+    if (uacpi_unlikely_error(ret)) {
+        serial_io_printf("uacpi_namespace_load error: %s", uacpi_status_to_string(ret));
+        
+    }
+
+    ret = uacpi_namespace_initialize();
+    if (uacpi_unlikely_error(ret)) {
+        serial_io_printf("uacpi_namespace_initialize error: %s", uacpi_status_to_string(ret));
+    }
+
+    ret = uacpi_finalize_gpe_initialization();
+
+    if (uacpi_unlikely_error(ret)) {
+        serial_io_printf("uacpi_gpe_gay error: %s", uacpi_status_to_string(ret));
+    }
+
+   
+    
 
     serial_io_printf("PS/2 OK\n");
 
     printMemoryMaps();
-    /* ========== Storage ========== */
+
+    rtl8139_init();
 
     storage_init();
-
+    lspci();
     if (storage_get_type() != STORAGE_NONE) {
 
         printf("Mounting FAT32...\n");
@@ -217,19 +271,14 @@ void kmain(void) {
             printf("FAT32 Failed\n");
     }
 
-    /* ========== Syscall ========== */
-
     syscall_init();
 
-    printf("Syscalls OK\n");
-
-    /* ========== Tasking ========== */
+  
 
     //initTasking();
 
     printf("Scheduler Ready\n");
 
-    /* ========== Shell / Main Loop ========== */
 
     printf("\n=== DoorsOS Ready ===\n");
     sound_init();
@@ -264,4 +313,5 @@ void kmain(void) {
     printf("Type 'help' for commands\n\n");
 
     initTasking();
+    for(;;){}
 }

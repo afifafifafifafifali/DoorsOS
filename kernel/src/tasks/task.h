@@ -25,6 +25,7 @@ typedef struct Task
     struct Task* next;
     struct Task* prev;      // add this
     task_state_t state;     // add this
+	int id;
     uint64_t slice;         // add this
 } __attribute__((packed)) Task;
 
@@ -62,9 +63,9 @@ typedef struct TSS
 }__attribute__((packed)) TSS;
 extern  Task *runningTask;
 
-static bool needs_yield = false;
-static uint64_t last_switch_tick = 0;
-void doIt();
-void initTasking();
 
+void initTasking();
+void taskCreate(Task *task, void (*main)());
+void taskKill(Task *task);
+void getCurrentTaskPID(void);
 #endif

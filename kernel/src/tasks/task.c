@@ -4,15 +4,23 @@
 #include "../gfx/serial_io.h"
 #include "../shell/shell_enhanced.h"
 #include "../interrupts/timer.h"
+#include "../libs/utilities.h"
 
 #define term_write serial_io_printf
 #define TASK_SLICE_DEFAULT 50  // now each task gets 50 ticks
+
+#define MAX_TASKS 32600 // lower than RAND_MAX
+
+
+
 
 Task *runningTask;
 static Task mainTask;
 static Task otherTask;
 static Task shellTask;
 static Task random;
+
+
 
 extern void switchTask(Registers* from, Registers* to);
 
@@ -98,6 +106,7 @@ void taskCreate(Task *task, void (*main)())
     tail->next = task;
     task->prev = tail;
     task->next = &shellTask; // circular
+    task->id = rand();
 }
 
 // --- Example Tasks ---
@@ -163,7 +172,9 @@ static void syscall_test_task()
 }
 
 
-
+void getCurrentTaskPID(void){
+    return runningTask->id;
+}
 // --- Tasking Init ---
 void initTasking()
 {
@@ -172,6 +183,8 @@ void initTasking()
     __asm__ volatile("pushfq; movq (%%rsp), %%rax; movq %%rax, %0; popfq;" : "=m"(mainTask.regs.rflags)::"%rax");
 
     createTask(&otherTask, otherMain, mainTask.regs.rflags, mainTask.regs.cr3);
+    otherTask.id = 1;
+    random.id = 2; shellTask.id = 3;
     createTask(&random, idle_task, mainTask.regs.rflags, mainTask.regs.cr3);
     createTask(&shellTask, shellMain, mainTask.regs.rflags, mainTask.regs.cr3);
 

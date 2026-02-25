@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include "platform/arch_helpers.h"
+#include "../libs/string.h"
 
  //new added by mr afim
 

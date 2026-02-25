@@ -1,3 +1,6 @@
+; ===============================
+;  x86_64 ISR + IRQ (0–47)
+; ===============================
 
 %macro pushad 0
     push r15
@@ -35,96 +38,124 @@
     pop r15
 %endmacro
 
-%macro isr_err_stub 1
-isr_stub_%+%1:
-    push %1        ; interrupt number
-    jmp isr_common_stub
-%endmacro
-
-%macro isr_no_err_stub 1
-isr_stub_%+%1:
-    push 0         ; fake error code
-    push %1        ; interrupt number
-    jmp isr_common_stub
-%endmacro
-
 section .text
 global isr_stub_table
 global irq_stub_table
+
 extern exception_handler
 extern irq_handler
+
+; ==========================================
+; Common EXCEPTION stub
+; ==========================================
 
 isr_common_stub:
     pushad
     cld
-    lea rdi, [rsp]       ; pass pointer to interrupt_frame_t
+    mov rdi, rsp
     call exception_handler
     popad
-    add rsp, 8           ; remove pushed int_no
+    add rsp, 16          ; remove int_no + err_code
     iretq
+
+; ==========================================
+; Common IRQ stub (NO error code ever)
+; ==========================================
 
 irq_common_stub:
     pushad
     cld
-    lea rdi, [rsp]       ; pass pointer to interrupt_frame_t
+    mov rdi, rsp
     call irq_handler
     popad
-    add rsp, 8            ; remove pushed int_no
+    add rsp, 16          ; remove int_no + fake err_code
     iretq
 
-isr_no_err_stub 0
-isr_no_err_stub 1
-isr_no_err_stub 2
-isr_no_err_stub 3
-isr_no_err_stub 4
-isr_no_err_stub 5
-isr_no_err_stub 6
-isr_no_err_stub 7
-isr_err_stub    8
-isr_no_err_stub 9
-isr_err_stub    10
-isr_err_stub    11
-isr_err_stub    12
-isr_err_stub    13
-isr_err_stub    14
-isr_no_err_stub 15
-isr_no_err_stub 16
-isr_err_stub    17
-isr_no_err_stub 18
-isr_no_err_stub 19
-isr_no_err_stub 20
-isr_no_err_stub 21
-isr_no_err_stub 22
-isr_no_err_stub 23
-isr_no_err_stub 24
-isr_no_err_stub 25
-isr_no_err_stub 26
-isr_no_err_stub 27
-isr_no_err_stub 28
-isr_no_err_stub 29
-isr_err_stub    30
-isr_no_err_stub 31
+; ==========================================
+; Macros
+; ==========================================
+
+%macro ISR_ERR 1
+isr_stub_%+%1:
+    push %1
+    jmp isr_common_stub
+%endmacro
+
+%macro ISR_NOERR 1
+isr_stub_%+%1:
+    push 0
+    push %1
+    jmp isr_common_stub
+%endmacro
+
+%macro IRQ_NOERR 1
+irq_stub_%+%1:
+    push 0       ; fake error code
+    push %1      ; interrupt vector
+    jmp irq_common_stub
+%endmacro
+
+; ==========================================
+; Exceptions (0–31)
+; ==========================================
+
+ISR_NOERR 0
+ISR_NOERR 1
+ISR_NOERR 2
+ISR_NOERR 3
+ISR_NOERR 4
+ISR_NOERR 5
+ISR_NOERR 6
+ISR_NOERR 7
+ISR_ERR   8
+ISR_NOERR 9
+ISR_ERR   10
+ISR_ERR   11
+ISR_ERR   12
+ISR_ERR   13
+ISR_ERR   14
+ISR_NOERR 15
+ISR_NOERR 16
+ISR_ERR   17
+ISR_NOERR 18
+ISR_NOERR 19
+ISR_NOERR 20
+ISR_NOERR 21
+ISR_NOERR 22
+ISR_NOERR 23
+ISR_NOERR 24
+ISR_NOERR 25
+ISR_NOERR 26
+ISR_NOERR 27
+ISR_NOERR 28
+ISR_NOERR 29
+ISR_ERR   30
+ISR_NOERR 31
+
+; ==========================================
+; IRQs (32–47)
+; ==========================================
 
 %assign i 32
 %rep 16
-irq_stub_%+i:
-    cli
-    push i
-    jmp irq_common_stub
-    %assign i i+1
+IRQ_NOERR i
+%assign i i+1
 %endrep
+
+; ==========================================
+; Tables
+; ==========================================
 
 isr_stub_table:
 %assign i 0
 %rep 32
     dq isr_stub_%+i
-    %assign i i+1
+%assign i i+1
 %endrep
-
 
 irq_stub_table:
 %assign i 32
 %rep 16
     dq irq_stub_%+i
-    %assign i i+1
+%assign i i+1
 %endrep

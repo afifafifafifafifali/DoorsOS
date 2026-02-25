@@ -46,6 +46,7 @@ static void timer_irq_handler(interrupt_frame_t* frame) {
     
     (void)frame;
     timer_ticks++;
+    //serial_io_printf("Hi from pit\n");
 
    if (runningTask != NULL) {
         if (runningTask->slice > 0) {
@@ -53,7 +54,8 @@ static void timer_irq_handler(interrupt_frame_t* frame) {
         }
 
         if (runningTask->slice == 0) {
-            needs_yield = true;
+            yield();
+            
         }
     }
 

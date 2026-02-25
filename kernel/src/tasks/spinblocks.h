@@ -2,16 +2,16 @@
 #define SPINLOCK_H
 
 #include <stdint.h>
-#include <stdatomic.h>
 
 typedef struct {
-    atomic_flag flag;
+    volatile uint8_t locked;
 } spinlock_t;
 
 static inline void spinlock_init(spinlock_t *lock) {
-    atomic_flag_clear_explicit(&lock->flag, memory_order_relaxed);
+    lock->locked = 0;
 }
 
+// Save CPU flags and disable interrupts
 static inline uint64_t irq_save(void) {
     uint64_t flags;
     __asm__ volatile(
@@ -25,6 +25,7 @@ static inline uint64_t irq_save(void) {
     return flags;
 }
 
+// Restore CPU flags
 static inline void irq_restore(uint64_t flags) {
     __asm__ volatile(
         "push %0\n\t"
@@ -35,20 +36,19 @@ static inline void irq_restore(uint64_t flags) {
     );
 }
 
+// Spin until we acquire the lock
 static inline void spin_lock(spinlock_t *lock) {
-    while (atomic_flag_test_and_set_explicit(
-               &lock->flag,
-               memory_order_acquire)) {
+    while (__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE)) {
         __asm__ volatile("pause");
     }
 }
 
-
-
+// Release the lock
 static inline void spin_unlock(spinlock_t *lock) {
-    atomic_flag_clear_explicit(&lock->flag, memory_order_release);
+    __atomic_clear(&lock->locked, __ATOMIC_RELEASE);
 }
 
+// Spinlock with IRQ save/restore
 static inline void spin_lock_irqsave(spinlock_t *lock, uint64_t *flags) {
     *flags = irq_save();
     spin_lock(lock);

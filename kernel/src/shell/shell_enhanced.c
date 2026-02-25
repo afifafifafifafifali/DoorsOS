@@ -405,7 +405,8 @@ void shell_run(void) {
         } else if (strcmp(cmd, "ls") == 0) {
             cmd_ls(arg);
         } else if (strcmp(cmd,"crash") == 0){
-            trigger_div0();
+            //trigger_div0();
+            *(volatile int*)0x12345 = 1;
         }
         else if (strcmp(cmd, "cat") == 0) {
             cmd_cat(arg);

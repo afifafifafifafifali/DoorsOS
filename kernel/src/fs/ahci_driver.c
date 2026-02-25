@@ -4,6 +4,7 @@
 #include "../gfx/serial_io.h"
 #include "../mem/new/pmm.h"
 #include "../mem/paging.h"
+#include "../mem/heap.h"
 #include "../libs/string.h"
 #include "../bootloader.h"
 #include "../storage/storage.h"
@@ -47,9 +48,11 @@ static void start_cmd(HBA_PORT* port) {
 static void port_rebase(HBA_PORT* port, int portno) {
     stop_cmd(port);
     
-    void* clb = k_malloc(1024);
-    void* fb = k_malloc(256);
-    void* ctba = k_malloc(8192);
+    serial_io_printf("Hi mr shayatin\n");
+    void* clb = malloc(1024);
+    void* fb = malloc(256);
+    void* ctba = malloc(8192);
+    serial_io_printf("bye mr shayatin\n");
     
     if (!clb || !fb || !ctba) {
         serial_io_printf("AHCI: alloc failed\n");
@@ -92,12 +95,12 @@ bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) 
     if (!port || !buf) return false;
     
     // Allocate DMA buffer in HHDM region
-    void* dma_buf = k_malloc(count * 512);
+    void* dma_buf = malloc(count * 512);
     if (!dma_buf) return false;
     
     port->is = (uint32_t)-1;
     int slot = find_cmdslot(port);
-    if (slot == -1) { k_free(dma_buf); return false; }
+    if (slot == -1) { free(dma_buf); return false; }
     
     HBA_CMD_HEADER* cmdheader = (HBA_CMD_HEADER*)(HHDM_BASE + port->clb);
     cmdheader += slot;
@@ -130,19 +133,19 @@ bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) 
     
     int spin = 0;
     while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) spin++;
-    if (spin == 1000000) { k_free(dma_buf); return false; }
+    if (spin == 1000000) { free(dma_buf); return false; }
     
     port->ci = 1 << slot;
     
     int timeout = 1000000;
     while (--timeout > 0) {
         if (!(port->ci & (1 << slot))) break;
-        if (port->is & HBA_PxIS_TFES) { k_free(dma_buf); return false; }
+        if (port->is & HBA_PxIS_TFES) { free(dma_buf); return false; }
     }
-    if (timeout <= 0) { k_free(dma_buf); return false; }
+    if (timeout <= 0) { free(dma_buf); return false; }
     
     memcpy(buf, dma_buf, count * 512);
-    k_free(dma_buf);
+    free(dma_buf);
     return true;
 }
 
@@ -150,13 +153,13 @@ bool ahci_write_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf)
     if (!port || !buf) return false;
     
     // Allocate DMA buffer and copy data
-    void* dma_buf = k_malloc(count * 512);
+    void* dma_buf = malloc(count * 512);
     if (!dma_buf) return false;
     memcpy(dma_buf, buf, count * 512);
     
     port->is = (uint32_t)-1;
     int slot = find_cmdslot(port);
-    if (slot == -1) { k_free(dma_buf); return false; }
+    if (slot == -1) { free(dma_buf); return false; }
     
     HBA_CMD_HEADER* cmdheader = (HBA_CMD_HEADER*)(HHDM_BASE + port->clb);
     cmdheader += slot;
@@ -189,18 +192,18 @@ bool ahci_write_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf)
     
     int spin = 0;
     while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) spin++;
-    if (spin == 1000000) { k_free(dma_buf); return false; }
+    if (spin == 1000000) { free(dma_buf); return false; }
     
     port->ci = 1 << slot;
     
     int timeout = 1000000;
     while (--timeout > 0) {
         if (!(port->ci & (1 << slot))) break;
-        if (port->is & HBA_PxIS_TFES) { k_free(dma_buf); return false; }
+        if (port->is & HBA_PxIS_TFES) { free(dma_buf); return false; }
     }
-    if (timeout <= 0) { k_free(dma_buf); return false; }
+    if (timeout <= 0) { free(dma_buf); return false; }
     
-    k_free(dma_buf);
+    free(dma_buf);
     return true;
 }
 
@@ -302,7 +305,7 @@ void ahci_test(void) {
         return;
     }
     
-    uint8_t* buf = (uint8_t*)k_malloc(512);
+    uint8_t* buf = (uint8_t*)malloc(512);
     if (!buf) {
         printf("Alloc failed\n");
         return;
@@ -316,7 +319,7 @@ void ahci_test(void) {
     printf("Writing to LBA 100...\n");
     if (!ahci_write_sectors(port, 100, 1, buf)) {
         printf("Write FAILED\n");
-        k_free(buf);
+        free(buf);
         return;
     }
     printf("Write SUCCESSFULL\n");
@@ -327,7 +330,7 @@ void ahci_test(void) {
     printf("Reading from LBA 100...\n");
     if (!ahci_read_sectors(port, 100, 1, buf)) {
         printf("Read FAILED\n");
-        k_free(buf);
+        free(buf);
         return;
     }
     printf("Read SUCCESSFULL\n");
@@ -357,7 +360,7 @@ void ahci_test(void) {
         printf("VERIFICATION FAILED - %d mismatches\n", errors);
     }
     
-    k_free(buf);
+    free(buf);
     printf("=== Test Complete ===\n");
     serial_io_printf("=== Test Complete ===\n");
     

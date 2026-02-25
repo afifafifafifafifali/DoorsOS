@@ -77,16 +77,16 @@ run-hdd-ahci: $(IMAGE_NAME).hdd
 	clear
 	qemu-system-x86_64.exe \
 		-cpu qemu64,+sse,+sse2 \
+		-drive if=pflash,format=raw,readonly,file=ovmf/ovmf-code-x86_64.fd\
+		-drive if=pflash,format=raw,file=ovmf/ovmf-vars-x86_64.fd \
 		-drive id=disk,file=$(IMAGE_NAME).hdd,format=raw,if=none \
 		-device ahci,id=ahci \
 		-device ide-hd,drive=disk,bus=ahci.0 \
 		-netdev user,id=n0 \
 		-device rtl8139,netdev=n0 \
 		-serial stdio \
-		-soundhw pcspk \
-		-m 2G \
-		$(QEMUFLAGS) \
-		2>/dev/null
+		-audiodev dsound,id=speaker -machine pcspk-audiodev=speaker \
+		-m 2G 
 
 
 
