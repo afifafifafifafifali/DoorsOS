@@ -31,6 +31,7 @@ static void cmd_help(void) {
     printf("  mkfile <f>   - Create file with content\n");
     printf("  nano <file>  - Edit file\n");
     printf("  rm <file>    - Delete file\n");
+    printf("  cp <src> <dst> - Copy file\n");
     printf("  pwd          - Print working directory\n");
     printf("  snake        - Play snake game\n");
     printf("  mem, time, reboot\n");
@@ -104,14 +105,27 @@ static void cmd_time(void) {
     printf("Uptime: %llu seconds\n", timer_get_ticks() / 1000);
 }
 
-static void cmd_reboot(void) {
-    printf("Rebooting...\n");
-    timer_sleep_ms(1000);
-    outb(0x64, 0xFE);
-}
 
-static void cmd_shutdown(void){
-    //outw(pm1a_cnt_blk, (1 << 13) | (s4bios_req ? (1 << 10) : 0));
+#include "../uacpi/uacpi.h"
+#include "../uacpi/sleep.h"
+#include "../uacpi/status.h"
+#include "../uacpi/event.h"
+#include "../uacpi/tables.h"
+static void cmd_reboot(void) {
+   
+    
+}
+ void cmd_shutdown(void){
+    serial_io_printf("Hi\n");
+    
+    asm("cli");
+    serial_io_printf("Helo\n");
+    uacpi_status ret = uacpi_enter_sleep_state(UACPI_SLEEP_STATE_S5);
+    if (uacpi_unlikely_error(ret)) {
+        serial_io_printf("failed to enter sleep: %s\n", uacpi_status_to_string(ret));
+        
+    }
+    serial_io_printf("Should never reach here\n");
 }
 static void cmd_pwd(void) {
     printf("%s\n", current_dir);
@@ -215,6 +229,68 @@ static void cmd_rm(const char* filename) {
     } else {
         printf("Failed to delete: %s\n", filename);
     }
+}
+
+static void cmd_cp(const char* src, const char* dst) {
+    if (!src || !dst) {
+        printf("Usage: cp <source> <destination>\n");
+        return;
+    }
+
+    // Get file size first
+    uint32_t size = 0;
+    uint8_t* size_buf = k_malloc(512);
+    if (!size_buf) {
+        printf("Out of memory\n");
+        return;
+    }
+    if (!fat32_read_file(src, size_buf, &size)) {
+        printf("File not found: %s\n", src);
+        k_free(size_buf);
+        return;
+    }
+    k_free(size_buf);
+
+    if (size == 0) {
+        printf("File is empty: %s\n", src);
+        return;
+    }
+
+    printf("Copying %s (%u bytes) to %s...\n", src, size, dst);
+
+    // Use 64KB chunk buffer
+    const uint32_t CHUNK_SIZE = 65536;
+    uint8_t* chunk_buf = k_malloc(CHUNK_SIZE);
+    if (!chunk_buf) {
+        printf("Out of memory for buffer\n");
+        return;
+    }
+
+    // Read entire file into memory (FAT driver is now fast)
+    uint8_t* file_buf = k_malloc(size);
+    if (!file_buf) {
+        printf("Out of memory for file (%u bytes)\n", size);
+        k_free(chunk_buf);
+        return;
+    }
+
+    if (!fat32_read_file(src, file_buf, &size)) {
+        printf("Failed to read: %s\n", src);
+        k_free(file_buf);
+        k_free(chunk_buf);
+        return;
+    }
+
+    if (!fat32_write_file(dst, file_buf, size)) {
+        printf("Failed to write: %s\n", dst);
+        k_free(file_buf);
+        k_free(chunk_buf);
+        return;
+    }
+
+    printf("Copied: %s -> %s (%u bytes)\n", src, dst, size);
+    k_free(file_buf);
+    k_free(chunk_buf);
 }
 
 static void cmd_rmdir(const char* dirname) {
@@ -419,6 +495,20 @@ void shell_run(void) {
         } 
         else if (strcmp(cmd, "rm") == 0) {
             cmd_rm(arg);
+        } else if (strcmp(cmd, "cp") == 0) {
+            if (arg) {
+                char* dst = strchr(arg, ' ');
+                if (dst) {
+                    *dst = 0;
+                    dst++;
+                    while (*dst == ' ') dst++;
+                    cmd_cp(arg, dst);
+                } else {
+                    printf("Usage: cp <source> <destination>\n");
+                }
+            } else {
+                printf("Usage: cp <source> <destination>\n");
+            }
         } else if (strcmp(cmd, "rmdir") == 0) {
             cmd_rmdir(arg);
         } else if (strcmp(cmd, "nano") == 0) {
@@ -428,7 +518,7 @@ void shell_run(void) {
         }else if(strcmp(cmd,"doorsfetch") == 0){
             print_doors_logo();
         } else if(strcmp(cmd,"shutdown") == 0){
-             return 0;
+             cmd_shutdown();
         } else if(strcmp(cmd,"echo") == 0) {
             printf("%s \n",arg);
         } else {

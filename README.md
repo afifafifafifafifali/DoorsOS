@@ -1,6 +1,6 @@
 # What is DoorsOS 🚪?
 
-DoorsOS is an x86_64 POSIX-Compliant Limine-based operating system in C. An active effort of making a full OS, with a simple and readable codebase.  [![DOI](https://zenodo.org/badge/1015985619.svg)](https://doi.org/10.5281/zenodo.18637986)
+DoorsOS is an ** UEFI ONLY**  x86_64 POSIX-Compliant Limine-based operating system in C. An active effort of making a full OS, with a simple and readable codebase.  [![DOI](https://zenodo.org/badge/1015985619.svg)](https://doi.org/10.5281/zenodo.18637986)
 
 # Preview of the OS
 
@@ -19,7 +19,7 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Initialise Limine
 * [X]  Add Limine FrameBuffer
 * [X]  Add flanterm
-* [X]  Add umm_malloc
+* [X]  Add umm_malloc(depreciated)
 * [X]  Add ps2 keyboard(Note: USB works with it too)
 * [X]  Add interrupts( essential stuff, unfortunately)
 * [X]  Add SSE(It killed me)
@@ -31,10 +31,10 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Add ATA/PIO(Can also support sata)
 * [X]  Add FAT32 Read
 * [X]  Add fat32 write
-* [X]  Add a PMM, PCI, And rpoper mapPage driver
+* [X]  Add a PMM, PCI, And proper mapPage driver
 * [X]  Add DateAndTime support
-* [X]  Add uACPI Barebones
-* [ ]  Shutdown
+* [X]  Add uACPI (full)
+* [X]  Shutdown
 * [X]  Add Multitasking
 * [X]  Add Syscalls (Syscall listener at ``0xD00F5AF1F``)
 * [ ]  Add Linux headers(Optional)
@@ -63,6 +63,6 @@ Limine
 make limine/limine
 ```
 
-Make CD: ``` make clean && make run```
+Make CD(without UEFI): ``` make clean && make run```
 
-For ATA(recommended): ```make clean && make run-hdd```
+For AHCI(UEFI): ```make clean && make run-hdd-ahci```

@@ -9,7 +9,7 @@ extern volatile struct limine_hhdm_request hhdm_request;
 
 
 
-#define HEAP_SIZE (256 * 1024 * 1024) // 256 MiB heap size
+#define HEAP_SIZE (856 * 1024 * 1024) // 856 MiB heap size
 
 static uint8_t* heap_start = NULL;
 static uint8_t* heap_end = NULL;

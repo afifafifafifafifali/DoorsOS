@@ -14,6 +14,10 @@
 static HBA_MEM* abar = NULL;
 static int ahci_initialized = 0;
 
+// Static DMA buffer pointer (allocated once in HHDM region)
+static uint8_t* dma_buffer = NULL;
+static uintptr_t dma_buffer_phys = 0;
+
 // Map physical MMIO to virtual address
 // FUCK DOG DICK HOLE WALKING, initPML4 shall be pissin on the dog
 static void* map_mmio(uintptr_t phys, size_t size) {
@@ -92,31 +96,27 @@ static int find_cmdslot(HBA_PORT* port) {
 }
 
 bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) {
-    if (!port || !buf) return false;
-    
-    // Allocate DMA buffer in HHDM region
-    void* dma_buf = malloc(count * 512);
-    if (!dma_buf) return false;
-    
+    if (!port || !buf || !dma_buffer) return false;
+    if (count * 512 > 1024 * 1024) return false;
+
     port->is = (uint32_t)-1;
     int slot = find_cmdslot(port);
-    if (slot == -1) { free(dma_buf); return false; }
-    
+    if (slot == -1) return false;
+
     HBA_CMD_HEADER* cmdheader = (HBA_CMD_HEADER*)(HHDM_BASE + port->clb);
     cmdheader += slot;
     cmdheader->cfl = sizeof(FIS_REG_H2D) / 4;
     cmdheader->w = 0;
     cmdheader->prdtl = 1;
-    
+
     HBA_CMD_TBL* cmdtbl = (HBA_CMD_TBL*)(HHDM_BASE + cmdheader->ctba);
     memset(cmdtbl, 0, sizeof(HBA_CMD_TBL));
-    
-    uintptr_t buf_phys = (uintptr_t)dma_buf - HHDM_BASE;
-    cmdtbl->prdt_entry[0].dba = (uint32_t)buf_phys;
-    cmdtbl->prdt_entry[0].dbau = (uint32_t)(buf_phys >> 32);
+
+    cmdtbl->prdt_entry[0].dba = (uint32_t)dma_buffer_phys;
+    cmdtbl->prdt_entry[0].dbau = (uint32_t)(dma_buffer_phys >> 32);
     cmdtbl->prdt_entry[0].dbc = (count * 512) - 1;
     cmdtbl->prdt_entry[0].i = 1;
-    
+
     FIS_REG_H2D* cmdfis = (FIS_REG_H2D*)(&cmdtbl->cfis);
     cmdfis->fis_type = FIS_TYPE_REG_H2D;
     cmdfis->c = 1;
@@ -130,52 +130,49 @@ bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) 
     cmdfis->device = 1 << 6;
     cmdfis->countl = count & 0xFF;
     cmdfis->counth = (count >> 8) & 0xFF;
-    
+
     int spin = 0;
     while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) spin++;
-    if (spin == 1000000) { free(dma_buf); return false; }
-    
+    if (spin == 1000000) return false;
+
     port->ci = 1 << slot;
-    
+
     int timeout = 1000000;
     while (--timeout > 0) {
         if (!(port->ci & (1 << slot))) break;
-        if (port->is & HBA_PxIS_TFES) { free(dma_buf); return false; }
+        if (port->is & HBA_PxIS_TFES) return false;
     }
-    if (timeout <= 0) { free(dma_buf); return false; }
-    
-    memcpy(buf, dma_buf, count * 512);
-    free(dma_buf);
+    if (timeout <= 0) return false;
+
+    memcpy(buf, dma_buffer, count * 512);
     return true;
 }
 
 bool ahci_write_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) {
-    if (!port || !buf) return false;
-    
-    // Allocate DMA buffer and copy data
-    void* dma_buf = malloc(count * 512);
-    if (!dma_buf) return false;
-    memcpy(dma_buf, buf, count * 512);
-    
+    if (!port || !buf || !dma_buffer) return false;
+    if (count * 512 > 1024 * 1024) return false;
+
+    // Copy data to DMA buffer
+    memcpy(dma_buffer, buf, count * 512);
+
     port->is = (uint32_t)-1;
     int slot = find_cmdslot(port);
-    if (slot == -1) { free(dma_buf); return false; }
-    
+    if (slot == -1) return false;
+
     HBA_CMD_HEADER* cmdheader = (HBA_CMD_HEADER*)(HHDM_BASE + port->clb);
     cmdheader += slot;
     cmdheader->cfl = sizeof(FIS_REG_H2D) / 4;
     cmdheader->w = 1;
     cmdheader->prdtl = 1;
-    
+
     HBA_CMD_TBL* cmdtbl = (HBA_CMD_TBL*)(HHDM_BASE + cmdheader->ctba);
     memset(cmdtbl, 0, sizeof(HBA_CMD_TBL));
-    
-    uintptr_t buf_phys = (uintptr_t)dma_buf - HHDM_BASE;
-    cmdtbl->prdt_entry[0].dba = (uint32_t)buf_phys;
-    cmdtbl->prdt_entry[0].dbau = (uint32_t)(buf_phys >> 32);
+
+    cmdtbl->prdt_entry[0].dba = (uint32_t)dma_buffer_phys;
+    cmdtbl->prdt_entry[0].dbau = (uint32_t)(dma_buffer_phys >> 32);
     cmdtbl->prdt_entry[0].dbc = (count * 512) - 1;
     cmdtbl->prdt_entry[0].i = 1;
-    
+
     FIS_REG_H2D* cmdfis = (FIS_REG_H2D*)(&cmdtbl->cfis);
     cmdfis->fis_type = FIS_TYPE_REG_H2D;
     cmdfis->c = 1;
@@ -189,21 +186,20 @@ bool ahci_write_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf)
     cmdfis->device = 1 << 6;
     cmdfis->countl = count & 0xFF;
     cmdfis->counth = (count >> 8) & 0xFF;
-    
+
     int spin = 0;
     while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) spin++;
-    if (spin == 1000000) { free(dma_buf); return false; }
-    
+    if (spin == 1000000) return false;
+
     port->ci = 1 << slot;
-    
+
     int timeout = 1000000;
     while (--timeout > 0) {
         if (!(port->ci & (1 << slot))) break;
-        if (port->is & HBA_PxIS_TFES) { free(dma_buf); return false; }
+        if (port->is & HBA_PxIS_TFES) return false;
     }
-    if (timeout <= 0) { free(dma_buf); return false; }
-    
-    free(dma_buf);
+    if (timeout <= 0) return false;
+
     return true;
 }
 
@@ -275,6 +271,14 @@ int ahci_init(void) {
     ahci_initialized = 1;
     printf("AHCI ready: %d ports\n", port_count);
     serial_io_printf("AHCI ready: %d ports\n", port_count);
+
+    // Allocate DMA buffer once (1MB for large transfers)
+    dma_buffer = malloc(1024 * 1024);
+    if (dma_buffer) {
+        dma_buffer_phys = (uintptr_t)dma_buffer - HHDM_BASE;
+        printf("DMA buffer allocated at %p (phys: 0x%lx)\n", dma_buffer, dma_buffer_phys);
+    }
+
     return 1;
 }
 

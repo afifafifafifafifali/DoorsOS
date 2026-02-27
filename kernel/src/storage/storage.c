@@ -64,13 +64,9 @@ storage_type_t storage_get_type(void) {
 int storage_read_sectors(uint64_t lba, uint32_t count, void* buffer) {
     switch (current_storage) {
         case STORAGE_AHCI:
-            serial_io_printf("AHCI read: LBA=%llu count=%u port=%p\n", lba, count, ahci_port);
             if (ahci_port) {
-                int ret = ahci_read_sectors(ahci_port, lba, count, buffer);
-                serial_io_printf("AHCI read result: %d\n", ret);
-                return ret;
+                return ahci_read_sectors(ahci_port, lba, count, buffer);
             }
-            serial_io_printf("AHCI: No port!\n");
             return 0;
         case STORAGE_ATA:
             ata_pio_read28(lba, count, buffer);

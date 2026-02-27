@@ -3,63 +3,77 @@
 #include "../gfx/printf.h"
 #include "../libs/string.h"
 #include "../mem/new/pmm.h"
-
+#include "../gfx/serial_io.h"
 static fat32_info_t fs;
 static uint8_t sector_buf[512];
-static uint32_t current_dir_cluster = 0;  // Current working directory cluster
+static uint32_t current_dir_cluster = 0;
+
+// Full FAT cache - cache entire FAT in memory for speed
+static uint8_t* fat_cache = NULL;
+static uint32_t fat_cache_size = 0;
+static bool fat_cache_dirty = false;
 
 static uint32_t cluster_to_lba(uint32_t cluster) {
-    return fs.start_lba + fs.reserved_sector_count + 
-           (fs.num_fats * fs.fat_size_sectors) + 
+    return fs.start_lba + fs.reserved_sector_count +
+           (fs.num_fats * fs.fat_size_sectors) +
            ((cluster - 2) * fs.sectors_per_cluster);
 }
 
 static uint32_t get_fat_entry(uint32_t cluster) {
+    if (!fat_cache) return 0;
     uint32_t fat_offset = cluster * 4;
-    uint32_t fat_sector = fs.start_lba + fs.reserved_sector_count + (fat_offset / 512);
-    uint32_t entry_offset = fat_offset % 512;
-    
-    storage_read_sectors(fat_sector, 1, sector_buf);
-    return *(uint32_t*)&sector_buf[entry_offset] & 0x0FFFFFFF;
+    if (fat_offset >= fat_cache_size) return 0;
+    return *(uint32_t*)&fat_cache[fat_offset] & 0x0FFFFFFF;
 }
 
 static void set_fat_entry(uint32_t cluster, uint32_t value) {
+    if (!fat_cache) return;
     uint32_t fat_offset = cluster * 4;
-    uint32_t fat_sector = fs.start_lba + fs.reserved_sector_count + (fat_offset / 512);
-    uint32_t entry_offset = fat_offset % 512;
-    
-    storage_read_sectors(fat_sector, 1, sector_buf);
-    *(uint32_t*)&sector_buf[entry_offset] = (*(uint32_t*)&sector_buf[entry_offset] & 0xF0000000) | (value & 0x0FFFFFFF);
-    storage_write_sectors(fat_sector, 1, sector_buf);
+    if (fat_offset >= fat_cache_size) return;
+    *(uint32_t*)&fat_cache[fat_offset] = (*(uint32_t*)&fat_cache[fat_offset] & 0xF0000000) | (value & 0x0FFFFFFF);
+    fat_cache_dirty = true;
+}
+
+static void flush_fat_cache(void) {
+    if (!fat_cache || !fat_cache_dirty) return;
+    uint32_t fat_start = fs.start_lba + fs.reserved_sector_count;
+    uint32_t sectors = (fat_cache_size + 511) / 512;
+    for (uint32_t i = 0; i < sectors; i++) {
+        // Write to all FAT copies
+        for (uint8_t f = 0; f < fs.num_fats; f++) {
+            storage_write_sectors(fat_start + (fs.fat_size_sectors * f) + i, 1, &fat_cache[i * 512]);
+        }
+    }
+    fat_cache_dirty = false;
 }
 
 static uint32_t allocate_cluster(void) {
-    uint8_t fat_buf[512];
-    uint32_t fat_start = fs.start_lba + fs.reserved_sector_count;
-    
-    // Search first 128 FAT sectors (16384 clusters)
-    for (uint32_t sector = 0; sector < 128; sector++) {
-        storage_read_sectors(fat_start + sector, 1, fat_buf);
-        
-        for (uint32_t offset = 0; offset < 512; offset += 4) {
-            uint32_t cluster = (sector * 512 + offset) / 4;
-            if (cluster < 2) continue;
-            
-            uint32_t entry = *(uint32_t*)&fat_buf[offset] & 0x0FFFFFFF;
-            if (entry == 0) {
-                // Mark as EOF
-                *(uint32_t*)&fat_buf[offset] = (*(uint32_t*)&fat_buf[offset] & 0xF0000000) | 0x0FFFFFFF;
-                storage_write_sectors(fat_start + sector, 1, fat_buf);
-                
-                // Clear cluster
-                uint32_t lba = cluster_to_lba(cluster);
+    // Search FAT for free cluster (no disk reads - all in memory)
+    for (uint32_t offset = 0; offset < fat_cache_size; offset += 4) {
+        uint32_t cluster = offset / 4;
+        if (cluster < 2) continue;
+
+        uint32_t entry = *(uint32_t*)&fat_cache[offset] & 0x0FFFFFFF;
+        if (entry == 0) {
+            // Mark as EOF (don't flush yet - batch at end)
+            *(uint32_t*)&fat_cache[offset] = (*(uint32_t*)&fat_cache[offset] & 0xF0000000) | 0x0FFFFFFF;
+            fat_cache_dirty = true;
+
+            // Clear entire cluster at once
+            uint32_t lba = cluster_to_lba(cluster);
+            uint8_t* zero_buf = k_malloc(fs.sectors_per_cluster * 512);
+            if (zero_buf) {
+                memset(zero_buf, 0, fs.sectors_per_cluster * 512);
+                storage_write_sectors(lba, fs.sectors_per_cluster, zero_buf);
+                k_free(zero_buf);
+            } else {
                 memset(sector_buf, 0, 512);
                 for (uint32_t j = 0; j < fs.sectors_per_cluster; j++) {
                     storage_write_sectors(lba + j, 1, sector_buf);
                 }
-                
-                return cluster;
             }
+
+            return cluster;
         }
     }
     return 0;
@@ -67,14 +81,14 @@ static uint32_t allocate_cluster(void) {
 
 bool fat32_mount(uint32_t lba, bool ahci) {
     (void)ahci;
-    
+
     serial_io_printf("fat32_mount: reading LBA %u\n", lba);
     if (!storage_read_sectors(lba, 1, sector_buf)) {
         serial_io_printf("fat32_mount: read failed\n");
         return false;
     }
     serial_io_printf("fat32_mount: read OK\n");
-    
+
     fs.start_lba = lba;
     fs.bytes_per_sector = *(uint16_t*)&sector_buf[11];
     fs.sectors_per_cluster = sector_buf[13];
@@ -82,19 +96,34 @@ bool fat32_mount(uint32_t lba, bool ahci) {
     fs.num_fats = sector_buf[16];
     fs.fat_size_sectors = *(uint32_t*)&sector_buf[36];
     fs.root_cluster = *(uint32_t*)&sector_buf[44];
-    
+
     serial_io_printf("FAT32: bps=%u spc=%u rsc=%u nf=%u fss=%u rc=%u\n",
         fs.bytes_per_sector, fs.sectors_per_cluster, fs.reserved_sector_count,
         fs.num_fats, fs.fat_size_sectors, fs.root_cluster);
-    serial_io_printf("FAT32: first bytes: %02x %02x %02x\n", sector_buf[0], sector_buf[1], sector_buf[2]);
-    
+
+    // Allocate and load entire FAT into memory
+    fat_cache_size = fs.fat_size_sectors * 512;
+    fat_cache = k_malloc(fat_cache_size);
+    if (!fat_cache) {
+        serial_io_printf("FAT32: failed to allocate FAT cache (%u bytes)\n", fat_cache_size);
+        return false;
+    }
+
+    // Read first FAT copy
+    uint32_t fat_start = fs.start_lba + fs.reserved_sector_count;
+    serial_io_printf("FAT32: loading FAT cache from LBA %u (%u sectors)\n", fat_start, fs.fat_size_sectors);
+    for (uint32_t i = 0; i < fs.fat_size_sectors; i++) {
+        storage_read_sectors(fat_start + i, 1, &fat_cache[i * 512]);
+    }
+    serial_io_printf("FAT32: FAT cache loaded\n");
+
     return fs.bytes_per_sector == 512;
 }
 
 // Extract characters from LFN entry
 static void lfn_extract(uint8_t* entry, char* lfn, int seq) {
     int base = ((seq & 0x1F) - 1) * 13;
-    int offsets[] = {1,3,5,7,9, 14,16,18,20,22,24, 28,30};
+    static const int offsets[] = {1,3,5,7,9, 14,16,18,20,22,24, 28,30};
     for (int i = 0; i < 13; i++) {
         uint16_t c = *(uint16_t*)&entry[offsets[i]];
         if (c == 0 || c == 0xFFFF) break;
@@ -117,11 +146,13 @@ static void lfn_create_entry(uint8_t* entry, const char* name, int seq, uint8_t 
     entry[0] = seq | (last ? 0x40 : 0);
     entry[11] = 0x0F;  // LFN attribute
     entry[13] = checksum;
-    
-    int offsets[] = {1,3,5,7,9, 14,16,18,20,22,24, 28,30};
+
+    serial_io_printf("War egins\n");
+    static const int offsets[] = {1,3,5,7,9, 14,16,18,20,22,24, 28,30};
+    serial_io_printf("War endegins\n");
     int base = (seq - 1) * 13;
     int namelen = strlen(name);
-    
+
     for (int i = 0; i < 13; i++) {
         int idx = base + i;
         uint16_t c;
@@ -527,11 +558,23 @@ static bool fat32_read_file_in_dir(uint32_t dir_cluster, const char* filename, v
                 uint32_t cluster = *(uint16_t*)&entry[26] | (*(uint16_t*)&entry[20] << 16);
                 *size = *(uint32_t*)&entry[28];
 
-                uint32_t file_lba = cluster_to_lba(cluster);
-                uint32_t sectors = (*size + 511) / 512;
+                // Optimized: read entire clusters at once
+                uint32_t bytes_remaining = *size;
+                uint8_t* buf_ptr = (uint8_t*)buffer;
+                uint32_t cluster_lba = cluster_to_lba(cluster);
 
-                for (uint32_t s = 0; s < sectors && s < 8; s++) {
-                    storage_read_sectors(file_lba + s, 1, (uint8_t*)buffer + s * 512);
+                while (cluster >= 2 && cluster < 0x0FFFFFF8 && bytes_remaining > 0) {
+                    uint32_t cluster_size = fs.sectors_per_cluster * 512;
+                    uint32_t to_read = (bytes_remaining < cluster_size) ? bytes_remaining : cluster_size;
+                    uint32_t sectors = (to_read + 511) / 512;
+
+                    storage_read_sectors(cluster_lba, sectors, buf_ptr);
+
+                    buf_ptr += to_read;
+                    bytes_remaining -= to_read;
+
+                    cluster = get_fat_entry(cluster);
+                    if (cluster < 0x0FFFFFF8) cluster_lba = cluster_to_lba(cluster);
                 }
 
                 return true;
@@ -556,19 +599,48 @@ bool fat32_read_file(const char* filename, void* buffer, uint32_t* size) {
 
 // Write file to specific directory cluster
 static bool fat32_write_file_in_dir(uint32_t dir_cluster, const char* filename, const uint8_t* data, uint32_t size) {
-    uint32_t cluster = allocate_cluster();
-    if (!cluster) return false;
+    if (size == 0) return false;
 
-    // Write data
-    uint32_t lba = cluster_to_lba(cluster);
-    uint32_t sectors = (size + 511) / 512;
+    // Calculate clusters needed
+    uint32_t bytes_per_cluster = fs.sectors_per_cluster * 512;
+    uint32_t clusters_needed = (size + bytes_per_cluster - 1) / bytes_per_cluster;
 
-    for (uint32_t i = 0; i < sectors; i++) {
-        memset(sector_buf, 0, 512);
-        uint32_t copy_size = (size - i * 512 > 512) ? 512 : size - i * 512;
-        memcpy(sector_buf, &data[i * 512], copy_size);
-        storage_write_sectors(lba + i, 1, sector_buf);
+    // Allocate all clusters and build FAT chain
+    uint32_t first_cluster = 0;
+    uint32_t prev_cluster = 0;
+
+    for (uint32_t c = 0; c < clusters_needed; c++) {
+        uint32_t cluster = allocate_cluster();
+        if (!cluster) {
+            // Cleanup on failure
+            if (first_cluster) {
+                uint32_t cleanup = first_cluster;
+                while (cleanup && cleanup < 0x0FFFFFF8) {
+                    uint32_t next = get_fat_entry(cleanup);
+                    set_fat_entry(cleanup, 0);
+                    cleanup = next;
+                }
+            }
+            return false;
+        }
+
+        if (!first_cluster) first_cluster = cluster;
+        if (prev_cluster) set_fat_entry(prev_cluster, cluster);
+
+        // Write data to this cluster - optimized: write entire cluster at once
+        uint32_t cluster_lba = cluster_to_lba(cluster);
+        uint32_t offset = c * bytes_per_cluster;
+        uint32_t bytes_to_write = (size - offset < bytes_per_cluster) ? (size - offset) : bytes_per_cluster;
+        uint32_t sectors_to_write = (bytes_to_write + 511) / 512;
+
+        // Write all sectors in one call
+        storage_write_sectors(cluster_lba, sectors_to_write, &data[offset]);
+
+        prev_cluster = cluster;
     }
+
+    // Mark last cluster as EOF
+    set_fat_entry(prev_cluster, 0x0FFFFFFF);
 
     // Generate short name and check if LFN needed
     uint8_t shortname[11];
@@ -576,7 +648,7 @@ static bool fat32_write_file_in_dir(uint32_t dir_cluster, const char* filename, 
     uint8_t checksum = lfn_checksum(shortname);
 
     int namelen = strlen(filename);
-    int lfn_entries = (namelen + 12) / 13;  // Number of LFN entries needed
+    int lfn_entries = (namelen + 12) / 13;
     bool needs_lfn = (namelen > 11);
     for (int i = 0; filename[i] && !needs_lfn; i++) {
         if (filename[i] >= 'a' && filename[i] <= 'z') needs_lfn = true;
@@ -584,7 +656,7 @@ static bool fat32_write_file_in_dir(uint32_t dir_cluster, const char* filename, 
     }
     if (!needs_lfn) lfn_entries = 0;
 
-    int entries_needed = lfn_entries + 1;  // LFN entries + 1 short entry
+    int entries_needed = lfn_entries + 1;
 
     // Find consecutive free entries in directory
     uint32_t dir_lba = cluster_to_lba(dir_cluster);
@@ -618,11 +690,15 @@ static bool fat32_write_file_in_dir(uint32_t dir_cluster, const char* filename, 
     memset(entry, 0, 32);
     memcpy(entry, shortname, 11);
     entry[11] = 0x20;
-    *(uint16_t*)&entry[26] = cluster & 0xFFFF;
-    *(uint16_t*)&entry[20] = cluster >> 16;
+    *(uint16_t*)&entry[26] = first_cluster & 0xFFFF;
+    *(uint16_t*)&entry[20] = first_cluster >> 16;
     *(uint32_t*)&entry[28] = size;
 
     storage_write_sectors(dir_lba, 1, sector_buf);
+    
+    // Flush FAT cache once after all allocations
+    flush_fat_cache();
+    
     return true;
 }
 
@@ -787,6 +863,7 @@ static bool fat32_create_directory_in_parent(uint32_t parent_cluster, const char
     *(uint16_t*)&entry[26] = cluster & 0xFFFF;
     *(uint16_t*)&entry[20] = cluster >> 16;
 
+    flush_fat_cache();
     return storage_write_sectors(dir_lba, 1, sector_buf);
 }
 

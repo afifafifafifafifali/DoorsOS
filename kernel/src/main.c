@@ -226,7 +226,10 @@ void kmain(void) {
 
     timer_sleep_ms(3100);
     serial_io_printf("Ticks: %llu \n",timer_get_ticks());
-
+    
+    
+     allocator_init();
+     
     uacpi_status ret = uacpi_initialize(0);
 
     if (uacpi_unlikely_error(ret)) {
@@ -250,12 +253,19 @@ void kmain(void) {
         serial_io_printf("uacpi_gpe_gay error: %s", uacpi_status_to_string(ret));
     }
 
+
+    uacpi_status ret2 = uacpi_prepare_for_sleep_state(UACPI_SLEEP_STATE_S5);
+    if (uacpi_unlikely_error(ret2)) {
+        serial_io_printf("failed to prepare for sleep: %s\n", uacpi_status_to_string(ret2));
+        
+    }
    
     
 
     serial_io_printf("PS/2 OK\n");
 
     printMemoryMaps();
+   
 
     rtl8139_init();
 
@@ -276,6 +286,7 @@ void kmain(void) {
   
 
     //initTasking();
+
 
     printf("Scheduler Ready\n");
 

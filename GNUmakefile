@@ -77,7 +77,7 @@ run-hdd-ahci: $(IMAGE_NAME).hdd
 	clear
 	qemu-system-x86_64.exe \
 		-cpu qemu64,+sse,+sse2 \
-		-drive if=pflash,format=raw,readonly,file=ovmf/ovmf-code-x86_64.fd\
+		-drive if=pflash,format=raw,readonly,file=ovmf/ovmf-code-x86_64.fd \
 		-drive if=pflash,format=raw,file=ovmf/ovmf-vars-x86_64.fd \
 		-drive id=disk,file=$(IMAGE_NAME).hdd,format=raw,if=none \
 		-device ahci,id=ahci \
@@ -139,7 +139,7 @@ $(IMAGE_NAME).iso: kernel
 $(IMAGE_NAME).hdd:  kernel
 	rm -f DoorsOS.hdd
 	@if [ ! -f $(IMAGE_NAME).hdd ]; then \
-		dd if=/dev/zero bs=1M count=64 of=$(IMAGE_NAME).hdd; \
+		dd if=/dev/zero bs=1M count=1056 of=$(IMAGE_NAME).hdd; \
 		PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00 -m 1; \
 		./limine/limine bios-install $(IMAGE_NAME).hdd; \
 		mformat -F -v DOORSOS -i $(IMAGE_NAME).hdd@@1M ::; \

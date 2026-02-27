@@ -1,0 +1,12 @@
+afif@DESKTOP-1UJTC6R:/mnt/c/Users/AFIF/Documents/DoorsOS$ mcopy -i DoorsOS.hdd@@1M ::/hii.efi testinglavoratory/hii.efi
+afif@DESKTOP-1UJTC6R:/mnt/c/Users/AFIF/Documents/DoorsOS$ cd testinglavoratory/
+afif@DESKTOP-1UJTC6R:/mnt/c/Users/AFIF/Documents/DoorsOS/testinglavoratory$ diff -q BOOTX64.EFI hii.efi
+afif@DESKTOP-1UJTC6R:/mnt/c/Users/AFIF/Documents/DoorsOS/testinglavoratory$ md5sum BOOTX64.EFI hii.efi 
+5e623b9fe46e8efc7028fd9663819c59  BOOTX64.EFI
+5e623b9fe46e8efc7028fd9663819c59  hii.efi
+afif@DESKTOP-1UJTC6R:/mnt/c/Users/AFIF/Documents/DoorsOS/testinglavoratory$ sha256sum BOOTX64.EFI hii.efi 
+3eab296f4676cf98619a8b503c77de24b273f43385c076d4909979fcc79d0161  BOOTX64.EFI
+3eab296f4676cf98619a8b503c77de24b273f43385c076d4909979fcc79d0161  hii.efi
+afif@DESKTOP-1UJTC6R:/mnt/c/Users/AFIF/Documents/DoorsOS/testinglavoratory$ cmp BOOTX64.EFI hii.efi 
+afif@DESKTOP-1UJTC6R:/mnt/c/Users/AFIF/Documents/DoorsOS/testinglavoratory$ 
+hii.efi is the efi file copy-pasted in doorsos.
