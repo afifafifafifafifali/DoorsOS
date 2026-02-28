@@ -7,6 +7,7 @@ idt_entry_t idt_entries[256];
 
 extern void* isr_stub_table[];
 extern void* irq_stub_table[];
+extern void syscall_stub;
 
 idtr_t idtr = {
     sizeof(idt_entries) - 1,
@@ -33,6 +34,17 @@ void set_idt_entry(idt_entry_t* entry,
     entry->reserved = 0;
 }
 
+// Function to register a custom IDT entry (for syscalls, etc.)
+void register_interrupt_handler(uint8_t vector, void* handler, uint8_t dpl)
+{
+    uint8_t type_attr = 0x8E | (dpl << 5); // Interrupt gate with specified DPL
+    set_idt_entry(&idt_entries[vector],
+                  (uint64_t)handler,
+                  GDT_KERNEL_CODE_SELECTOR,
+                  0,
+                  type_attr);
+}
+
 void init_idt()
 {
     for (uint8_t i = 0; i < 32; i++)
@@ -52,6 +64,13 @@ void init_idt()
                       0,
                       0x8E);
     }
+
+    // Register syscall handler at vector 0x80
+    set_idt_entry(&idt_entries[0x80],
+                  (uint64_t)&syscall_stub,
+                  GDT_KERNEL_CODE_SELECTOR,
+                  0,
+                  0xEE); // add rin0,1,2,3 accessability
 
     load_idtr(&idtr);
     enable_interrupts();

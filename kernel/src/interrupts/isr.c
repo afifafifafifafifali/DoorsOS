@@ -50,6 +50,7 @@ void exception_handler(interrupt_frame_t* frame)
 
     printf("RIP:    0x%016llx\n", frame->rip);serial_io_printf("RIP:    0x%016llx\n", frame->rip);
     printf("RSP:    0x%016llx\n", frame->rsp);serial_io_printf("RSP:    0x%016llx\n", frame->rsp);
+    printf("SS:     0x%016llx\n", frame->ss);serial_io_printf("SS:     0x%016llx\n", frame->ss);
     printf("ERR:    0x%016llx\n", frame->err_code);serial_io_printf("ERR:    0x%016llx\n", frame->err_code);
     printf("RFLAGS: 0x%016llx\n", frame->rflags);serial_io_printf("RFLAGS: 0x%016llx\n", frame->rflags);
 

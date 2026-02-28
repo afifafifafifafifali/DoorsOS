@@ -147,6 +147,7 @@ $(IMAGE_NAME).hdd:  kernel
 	fi
 	mcopy -i $(IMAGE_NAME).hdd@@1M kernel/bin/kernel ::/boot
 	mcopy -i $(IMAGE_NAME).hdd@@1M test.txt ::/
+	mcopy -i $(IMAGE_NAME).hdd@@1M testinglavoratory/hugefile.exe ::/hugefile.exe
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTIA32.EFI ::/EFI/BOOT

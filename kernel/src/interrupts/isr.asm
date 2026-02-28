@@ -41,9 +41,11 @@
 section .text
 global isr_stub_table
 global irq_stub_table
+global syscall_stub
 
 extern exception_handler
 extern irq_handler
+extern syscall_handler_c
 
 ; ==========================================
 ; Common EXCEPTION stub
@@ -141,6 +143,48 @@ ISR_NOERR 31
 IRQ_NOERR i
 %assign i i+1
 %endrep
+
+; ==========================================
+; SYSCALL handler (int 0x80)
+; ==========================================
+; Syscall convention:
+;   rax = syscall number
+;   rdi = arg1
+;   rsi = arg2
+;   rdx = arg3
+; Returns: result in rax
+;
+; Minimal stub - only saves necessary registers
+
+syscall_stub:
+    ; Save registers and syscall args
+    ; Stack after pushes (rsp points to last pushed):
+    ; [rsp+0]  = rax (syscall number)
+    ; [rsp+8]  = rdx (arg3)
+    ; [rsp+16] = rsi (arg2)
+    ; [rsp+24] = rdi (arg1)
+    ; [rsp+32] = r11
+    ; [rsp+40] = rcx
+    ; [rsp+48+] = RIP, CS, RFLAGS (from CPU)
+    
+    push rcx
+    push r11
+    push rdi
+    push rsi
+    push rdx
+    push rax              ; syscall number
+    
+    ; Call handler: syscall_handler_c(syscall_num, arg1, arg2, arg3)
+    mov rdi, [rsp+0]      ; arg1 = syscall number (rax)
+    mov rsi, [rsp+24]     ; arg2 = original rdi (arg1)
+    mov rdx, [rsp+16]     ; arg3 = original rsi (arg2)
+    mov rcx, [rsp+8]      ; arg4 = original rdx (arg3)
+    call syscall_handler_c
+    
+    ; Return value is already in rax
+    ; Restore and return
+    add rsp, 48           ; clean up stack (6 pushes * 8 bytes)
+    iretq
 
 ; ==========================================
 ; Tables

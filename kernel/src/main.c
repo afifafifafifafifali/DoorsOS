@@ -41,9 +41,16 @@
 #include "uacpi/uacpi.h"
 #include "uacpi/event.h"
 #include "uacpi/sleep.h" // to tell the system to shut the fuck down
+#include "identity.h"
 
 
 
+#define FILE_NAME "Kernel Entry (/main.c)"
+#define CODE_QUALITY "A"
+#define FILE_VERSION "2.0"
+#define FILE_AUTHOR "Afif Ali Saadman(afifafifafifafifali)"
+#define FILE_DESCRIPTION "Kernel Entry Point,Limine Requests, Important memcpy,memmove functions, Drivers initiation are done here."
+#define FILE_LAST_UPDATED_DATE "27/2/2026"
 
 /* ===================================================== */
 /* ================= LIMINE SETUP ====================== */
@@ -165,6 +172,7 @@ static void hcf(void) {
     for (;;) asm volatile("hlt");
 }
 
+
 /* ===================================================== */
 /* ================== MAIN ============================= */
 /* ===================================================== */
@@ -266,11 +274,12 @@ void kmain(void) {
 
     printMemoryMaps();
    
-
+    
     rtl8139_init();
 
     storage_init();
     lspci();
+    kprint("\e[2J\e[H");
     if (storage_get_type() != STORAGE_NONE) {
 
         printf("Mounting FAT32...\n");
@@ -283,7 +292,14 @@ void kmain(void) {
 
     syscall_init();
 
-  
+    // Test syscalls
+    printf("\n=== Testing int 0x80 Syscalls ===\n");
+    const char* test_msg = "Hello from int 0x80 syscall!\n";
+    uint64_t written = sys_write(test_msg, strlen(test_msg));
+    printf("sys_write returned: %ld\n", written);
+
+    printf("=== Syscall Test Complete ===\n\n");
+
 
     //initTasking();
 

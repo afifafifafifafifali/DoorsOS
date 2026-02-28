@@ -239,7 +239,7 @@ static void cmd_cp(const char* src, const char* dst) {
 
     // Get file size first
     uint32_t size = 0;
-    uint8_t* size_buf = k_malloc(512);
+    uint8_t* size_buf = k_malloc(61871);
     if (!size_buf) {
         printf("Out of memory\n");
         return;
@@ -259,7 +259,7 @@ static void cmd_cp(const char* src, const char* dst) {
     printf("Copying %s (%u bytes) to %s...\n", src, size, dst);
 
     // Use 64KB chunk buffer
-    const uint32_t CHUNK_SIZE = 65536;
+    const uint32_t CHUNK_SIZE = 71871;
     uint8_t* chunk_buf = k_malloc(CHUNK_SIZE);
     if (!chunk_buf) {
         printf("Out of memory for buffer\n");

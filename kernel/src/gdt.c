@@ -100,21 +100,21 @@ void initiateGDT() {
   gdt.descriptors[7] = (GDTEntry){0}; // (56)
   gdt.descriptors[8] = (GDTEntry){0}; // (64)
 
-  // User code 64. (72)
-  gdt.descriptors[10].limit = 0;
-  gdt.descriptors[10].base_low = 0;
-  gdt.descriptors[10].base_mid = 0;
-  gdt.descriptors[10].access = 0b11111010;
-  gdt.descriptors[10].granularity = 0b00100000;
-  gdt.descriptors[10].base_high = 0;
-
-  // User data 64. (80)
+  // User data 64. (72) - must come before user code
   gdt.descriptors[9].limit = 0;
   gdt.descriptors[9].base_low = 0;
   gdt.descriptors[9].base_mid = 0;
-  gdt.descriptors[9].access = 0b11110010;
+  gdt.descriptors[9].access = 0b11110010;  // DPL=3 (bits 5-6=11), writable, accessed
   gdt.descriptors[9].granularity = 0;
   gdt.descriptors[9].base_high = 0;
+
+  // User code 64. (80)
+  gdt.descriptors[10].limit = 0;
+  gdt.descriptors[10].base_low = 0;
+  gdt.descriptors[10].base_mid = 0;
+  gdt.descriptors[10].access = 0b10111010;  // DPL=3, executable, accessed, present, S=1
+  gdt.descriptors[10].granularity = 0b00100000;
+  gdt.descriptors[10].base_high = 0;
 
   // TSS. (88)
   gdt.tss.length = 104;
@@ -128,6 +128,13 @@ void initiateGDT() {
 
   gdtr.limit = sizeof(GDTEntries) - 1;
   gdtr.base = (uint64_t)&gdt;
+  
+  serial_io_printf("GDT Limit: %d (0x%x), Base: 0x%lx\n", gdtr.limit, gdtr.limit, gdtr.base);
+  serial_io_printf("GDT entries: desc[0]=%lx, desc[9]=%lx, desc[10]=%lx, tss=%lx\n",
+    (uint64_t)&gdt.descriptors[0],
+    (uint64_t)&gdt.descriptors[9],
+    (uint64_t)&gdt.descriptors[10],
+    (uint64_t)&gdt.tss);
 
   gdt_reload();
 
