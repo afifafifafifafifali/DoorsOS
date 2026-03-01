@@ -298,7 +298,7 @@ void kmain(void) {
     uint64_t written = sys_write(test_msg, strlen(test_msg));
     printf("sys_write returned: %ld\n", written);
 
-    printf("=== Syscall Test Complete ===\n\n");
+    printf("=== Syscall Test Complete YAY ===\n\n");
 
 
     //initTasking();
