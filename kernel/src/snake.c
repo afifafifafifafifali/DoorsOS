@@ -19,16 +19,15 @@ typedef enum { UP, DOWN, LEFT, RIGHT } Direction;
 static Point snake[BOARD_WIDTH * BOARD_HEIGHT];
 static int snake_length;
 static Direction dir;
+static bool move_pending = false;  // Only move when key is pressed
 
 static Point food;
 
 static bool game_over = false;
 
-static uint32_t bgColor = COLOR_RGB_YELLOW;     
+static uint32_t bgColor = COLOR_RGB_YELLOW;
 static uint32_t snakeColor = 0x00FF00;  // green
 static uint32_t foodColor = 0xFF0000;   // red
-
-static char input_buffer[64];  // buffer for ps2_kbio_read input
 
 static void place_food(void) {
     while (1) {
@@ -69,6 +68,9 @@ static bool point_equal(Point a, Point b) {
 }
 
 static void move_snake(void) {
+    if (!move_pending) return;  // Don't move unless key was pressed
+    move_pending = false;  // Reset flag after moving
+
     // Move body
     for (int i = snake_length - 1; i > 0; i--) {
         snake[i] = snake[i - 1];
@@ -107,16 +109,16 @@ static void move_snake(void) {
 }
 
 static void handle_input(void) {
-    // ps2_kbio_read blocks until Enter, so we read one char and react on it:
-    string_t input = ps2_kbio_read(input_buffer, sizeof(input_buffer));
-    if (!input) return;
-    char c = input[0];
+    // Non-blocking: only move once per keypress
+    char c = ps2_kbio_getchar_nb();
+    serial_io_printf("Char c == %c\n",c);
+    if (c == 0) return;  // No key pressed
 
     switch (c) {
-        case 'w': if (dir != DOWN) dir = UP; break;
-        case 's': if (dir != UP) dir = DOWN; break;
-        case 'a': if (dir != RIGHT) dir = LEFT; break;
-        case 'd': if (dir != LEFT) dir = RIGHT; break;
+        case 'w': if (dir != DOWN) { dir = UP; move_pending = true; } break;
+        case 's': if (dir != UP) { dir = DOWN; move_pending = true; } break;
+        case 'a': if (dir != RIGHT) { dir = LEFT; move_pending = true; } break;
+        case 'd': if (dir != LEFT) { dir = RIGHT; move_pending = true; } break;
         case 'q': game_over = true; break;
     }
 }
@@ -124,6 +126,7 @@ static void handle_input(void) {
 void snake_init(void) {
     snake_length = 4;
     dir = RIGHT;
+    move_pending = true;  // Move once at start
 
     for (int i = 0; i < snake_length; i++) {
         snake[i].x = snake_length - 1 - i;
@@ -148,9 +151,5 @@ void snake_run(void) {
     draw_rect(0, 0, BOARD_WIDTH * CELL_SIZE, BOARD_HEIGHT * CELL_SIZE, 0x000000);
     kprint_color_at(5, BOARD_HEIGHT / 2, "GAME OVER! Press q to exit", 0xFF0000, true, 0x000000, true);
 
-    // Wait until user presses 'q' to quit
-    while (1) {
-        string_t input = ps2_kbio_read(input_buffer, sizeof(input_buffer));
-        if (input && input[0] == 'q') break;
-    }
+   
 }

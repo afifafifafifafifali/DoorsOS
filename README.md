@@ -38,7 +38,7 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Add Multitasking
 * [X]  Add Syscalls (int 0x80)
 * [ ]  Add Linux headers(Optional)
-* [ ]  Add Mouse
+* [X]  Add Mouse
 * [ ]  Add Windows(not MS, the GUI )
 * [ ]  Add Xorg or NanoX
 

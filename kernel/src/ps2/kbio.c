@@ -15,6 +15,27 @@
 
 #define PS2_DATA_PORT 0x60
 #define PS2_STATUS_PORT 0x64
+#define KBIO_BUFFER_SIZE 256
+
+// Ring buffer for non-blocking reads
+static char kbio_ring_buffer[KBIO_BUFFER_SIZE];
+static volatile size_t kbio_read_idx = 0;
+static volatile size_t kbio_write_idx = 0;
+
+static void kbio_ring_push(char c) {
+    size_t next_write = (kbio_write_idx + 1) % KBIO_BUFFER_SIZE;
+    if (next_write != kbio_read_idx) {
+        kbio_ring_buffer[kbio_write_idx] = c;
+        kbio_write_idx = next_write;
+    }
+}
+
+static char kbio_ring_pop(void) {
+    if (kbio_read_idx == kbio_write_idx) return 0;
+    char c = kbio_ring_buffer[kbio_read_idx];
+    kbio_read_idx = (kbio_read_idx + 1) % KBIO_BUFFER_SIZE;
+    return c;
+}
 
 // characterTable and shiftedCharacterTable unchanged, omitted here for brevity...
 
@@ -54,15 +75,20 @@ static bool capsLock = false;
 static string_t inputBuffer = NULL;
 static size_t bufferPos = 0;
 static size_t bufferSize = 0;
+static char c;
 static bool input_finished = false;
 
 void keyboard_irq_handler(interrupt_frame_t* frame) {
     serial_io_printf("Keyboard IRQ fired\n");
     (void)frame;
 
+    
+
     if (input_finished) {
+        serial_io_printf("Enter key state true");
         send_eoi_to_irq(1);
-        return;  // Ignore input after Enter pressed
+        //return;  // was a huuge design flaw
+        reset_keyboard_input_state();
     }
 
     uint8_t scancode = inb(PS2_DATA_PORT);
@@ -112,7 +138,7 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
 
 
 
-    char c;
+    
     if (shiftPressed) {
         c = shiftedCharacterTable[scancode];
     } else {
@@ -130,8 +156,7 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
             inputBuffer[bufferPos++] = c;
             inputBuffer[bufferPos] = '\0';
         }
-        char buf[2] = {c, '\0'};
-        printfch(buf); // Echo to screen
+        kbio_ring_push(c);  // Also add to ring buffer for non-blocking reads
     }
     send_eoi_to_irq(1);
 }
@@ -169,13 +194,24 @@ string_t ps2_kbio_read(string_t buffStr, size_t buffSize) {
     input_finished = false;
     inputBuffer[0] = '\0';
 
+    size_t last_pos = 0;
+
     // Busy-wait loop with voluntary yielding
     while (!input_finished) {
+        // Print any new characters that were typed
+        if (bufferPos > last_pos) {
+            for (size_t i = last_pos; i < bufferPos; i++) {
+                char buf[2] = {inputBuffer[i], '\0'};
+                printfch(buf);
+            }
+            last_pos = bufferPos;
+        }
+
         if (runningTask->slice == 0) {
-        yield();
-    } else {
-        runningTask->slice--;
-    }
+            yield();
+        } else {
+            runningTask->slice--;
+        }
         asm("hlt");
     }
 
@@ -254,14 +290,10 @@ string_t ps2_kbio_read_enhanced(string_t buffStr, size_t buffSize, int* cursor_y
     
     buffStr[index] = '\0';
     return buffStr;
+    return 0;
 }
 
 char ps2_kbio_getchar_nb(void) {
-    if (!(inb(PS2_STATUS_PORT) & 1)) return 0;
-    
-    uint8_t scancode = inb(PS2_DATA_PORT);
-    if (scancode & 0x80) return 0;
-    if (scancode >= sizeof(characterTable)) return 0;
-    
-    return characterTable[scancode];
+    return kbio_ring_pop();
 }
+
