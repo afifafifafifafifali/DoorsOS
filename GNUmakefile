@@ -139,7 +139,7 @@ $(IMAGE_NAME).iso: kernel
 $(IMAGE_NAME).hdd:  kernel
 	rm -f DoorsOS.hdd
 	@if [ ! -f $(IMAGE_NAME).hdd ]; then \
-		dd if=/dev/zero bs=1M count=1056 of=$(IMAGE_NAME).hdd; \
+		dd if=/dev/zero bs=1M count=128 of=$(IMAGE_NAME).hdd; \
 		PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00 -m 1; \
 		./limine/limine bios-install $(IMAGE_NAME).hdd; \
 		mformat -F -v DOORSOS -i $(IMAGE_NAME).hdd@@1M ::; \
@@ -147,6 +147,7 @@ $(IMAGE_NAME).hdd:  kernel
 	fi
 	mcopy -i $(IMAGE_NAME).hdd@@1M kernel/bin/kernel ::/boot
 	mcopy -i $(IMAGE_NAME).hdd@@1M test.txt ::/
+	mcopy -i $(IMAGE_NAME).hdd@@1M test_add ::/
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTIA32.EFI ::/EFI/BOOT

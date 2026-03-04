@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "../libs/string.h"
 #include "../gfx/serial_io.h"
+#include "../physalloc.h"
 
 extern volatile struct limine_memmap_request memmap_request;
 extern volatile struct limine_hhdm_request hhdm_request;
@@ -25,6 +26,9 @@ void allocator_init(void) {
             // map physical base to virtual via HHDM
             heap_start = phys_to_virt(entry->base);
             heap_end = heap_start + HEAP_SIZE;
+
+            // Reserve this physical region in PhysAlloc so PMM doesn't touch it
+            phys_alloc_reserve(entry->base, HEAP_SIZE);
 
             free_list = (FreeBlock*)heap_start;
             free_list->size = HEAP_SIZE - sizeof(FreeBlock);

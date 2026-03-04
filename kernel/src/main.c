@@ -42,6 +42,8 @@
 #include "uacpi/event.h"
 #include "uacpi/sleep.h" // to tell the system to shut the fuck down
 #include "identity.h"
+#include "vmm.h"
+#include "elf.h"
 
 
 
@@ -50,7 +52,7 @@
 #define FILE_VERSION "2.0"
 #define FILE_AUTHOR "Afif Ali Saadman(afifafifafifafifali)"
 #define FILE_DESCRIPTION "Kernel Entry Point,Limine Requests, Important memcpy,memmove functions, Drivers initiation are done here."
-#define FILE_LAST_UPDATED_DATE "27/2/2026"
+#define FILE_LAST_UPDATED_DATE "2/3/2026"
 
 /* ===================================================== */
 /* ================= LIMINE SETUP ====================== */
@@ -172,6 +174,7 @@ static void hcf(void) {
     for (;;) asm volatile("hlt");
 }
 
+  #include "PhysAlloc.h"
 
 /* ===================================================== */
 /* ================== MAIN ============================= */
@@ -192,8 +195,7 @@ void kmain(void) {
         framebuffer_request.response->framebuffer_count < 1)
         hcf();
 
-    struct limine_framebuffer *fb =
-        framebuffer_request.response->framebuffers[0];
+    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
 
     initialize_terminal(fb);
 
@@ -209,7 +211,12 @@ void kmain(void) {
         hcf();
 
     setMemoryMap(4);
+    return_cpu();
+    phys_alloc_init();
     allocator_init();
+    vmm_init();
+    phys_alloc_test();
+    vmm_test();
     initPML4();
 
     printf("Memory OK\n");
@@ -234,10 +241,10 @@ void kmain(void) {
 
     timer_sleep_ms(3100);
     serial_io_printf("Ticks: %llu \n",timer_get_ticks());
+        
+
+  
     
-    
-     allocator_init();
-     
     uacpi_status ret = uacpi_initialize(0);
 
     if (uacpi_unlikely_error(ret)) {
@@ -338,6 +345,38 @@ void kmain(void) {
     
      printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
     printf("Type 'help' for commands\n\n");
+
+    /* ========== ELF Loader Test ========== */
+    printf("\n=== ELF Loader Test ===\n");
+
+    elf64_program_t test_prog;
+    elf_error_t err = elf64_load_file("/test_add", &test_prog);
+
+    if (err == ELF_OK) {
+        serial_io_printf("ELF loaded successfully!\n");
+        serial_io_printf("Entry point: 0x%lx\n", test_prog.entry);
+        serial_io_printf("Base address: 0x%lx\n", test_prog.base);
+        serial_io_printf("Size: %lu bytes\n", test_prog.size);
+
+        /* Call the entry point directly (kernel mode test) */
+        serial_io_printf("Running test program (1+1)...\n");
+        typedef uint64_t (*elf_entry_t)(void);
+        elf_entry_t entry = (elf_entry_t)test_prog.entry;
+        uint64_t result = entry();
+
+        serial_io_printf("SUCCESS! Entry point executed without page fault!\n");
+        serial_io_printf("RAX (return value) = %lu\n", result);
+        if (result == 2) {
+            serial_io_printf("CORRECT! 1+1 = %lu\n", result);
+        } else {
+            serial_io_printf("WRONG! Expected 2, got %lu\n", result);
+        }
+    } else {
+        serial_io_printf("ELF load failed: %s\n", elf64_strerror(err));
+    }
+
+    printf("=== ELF Test Complete ===\n\n");
+    /* ================================= */
 
     initTasking();
     for(;;){}

@@ -122,10 +122,16 @@ obj/%.asm.o: %.asm GNUmakefile
 	mkdir -p "$$(dirname $@)"
 	nasm $(NASMFLAGS) $< -o $@
 
+# Build test ELF binary
+test: test.S
+	nasm -f elf64 test.S -o test.o
+	ld -n -o test test.o
+	rm -f test.o
+
 # Remove object files and the final executable.
 .PHONY: clean
 clean:
-	rm -rf bin obj
+	rm -rf bin obj test
 
 # Remove everything built and generated including downloaded dependencies.
 .PHONY: distclean
