@@ -158,7 +158,7 @@ IRQ_NOERR i
 
 syscall_stub:
     ; Save registers and syscall args
-    ; Stack after pushes (rsp points to last pushed):
+    ; Stack layout after pushes (rsp points to last pushed):
     ; [rsp+0]  = rax (syscall number)
     ; [rsp+8]  = rdx (arg3)
     ; [rsp+16] = rsi (arg2)
@@ -166,21 +166,21 @@ syscall_stub:
     ; [rsp+32] = r11
     ; [rsp+40] = rcx
     ; [rsp+48+] = RIP, CS, RFLAGS (from CPU)
-    
+
     push rcx
     push r11
     push rdi
     push rsi
     push rdx
     push rax              ; syscall number
-    
-    ; Call handler: syscall_handler_c(syscall_num, arg1, arg2, arg3)
-    mov rdi, [rsp+0]      ; arg1 = syscall number (rax)
-    mov rsi, [rsp+24]     ; arg2 = original rdi (arg1)
-    mov rdx, [rsp+16]     ; arg3 = original rsi (arg2)
-    mov rcx, [rsp+8]      ; arg4 = original rdx (arg3)
+
+    ; Call handler: syscall_handler_c(arg1, arg2, arg3, syscall_num)
+    mov rdi, [rsp+24]     ; arg1 = original rdi (fd)
+    mov rsi, [rsp+16]     ; arg2 = original rsi (buffer)
+    mov rdx, [rsp+8]      ; arg3 = original rdx (length)
+    mov rcx, [rsp+0]      ; syscall number (for debugging)
     call syscall_handler_c
-    
+
     ; Return value is already in rax
     ; Restore and return
     add rsp, 48           ; clean up stack (6 pushes * 8 bytes)

@@ -5,14 +5,16 @@
 #include "../mem/paging.h"
 #include "../gfx/serial_io.h"
 
-// Simple syscall handler - called from assembly with args in registers
-uint64_t syscall_handler_c(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) {
+// Syscall handler - called from assembly with args in registers
+// Args: arg1 (rdi), arg2 (rsi), arg3 (rdx), syscall_num (rcx)
+uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t num) {
+    serial_io_printf("SYSCALL IRQ IS CALLED--inside the handler_C");
     uint64_t ret = 0;
-    
+
     switch (num) {
         case SYS_WRITE: {
-            const char* str = (const char*)arg1;
-            uint64_t len = arg2;
+            const char* str = (const char*)arg2;
+            uint64_t len = arg3;
             for (uint64_t i = 0; i < len; i++) {
                 serial_io_putchar(str[i]);
             }

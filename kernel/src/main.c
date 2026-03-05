@@ -302,7 +302,7 @@ void kmain(void) {
     // Test syscalls
     printf("\n=== Testing int 0x80 Syscalls ===\n");
     const char* test_msg = "Hello from int 0x80 syscall!\n";
-    uint64_t written = sys_write(test_msg, strlen(test_msg));
+    uint64_t written = sys_write(1, test_msg, strlen(test_msg));
     printf("sys_write returned: %ld\n", written);
 
     printf("=== Syscall Test Complete YAY ===\n\n");
@@ -358,18 +358,31 @@ void kmain(void) {
         serial_io_printf("Base address: 0x%lx\n", test_prog.base);
         serial_io_printf("Size: %lu bytes\n", test_prog.size);
 
-        /* Call the entry point directly (kernel mode test) */
-        serial_io_printf("Running test program (1+1)...\n");
-        typedef uint64_t (*elf_entry_t)(void);
-        elf_entry_t entry = (elf_entry_t)test_prog.entry;
-        uint64_t result = entry();
-
-        serial_io_printf("SUCCESS! Entry point executed without page fault!\n");
-        serial_io_printf("RAX (return value) = %lu\n", result);
-        if (result == 2) {
-            serial_io_printf("CORRECT! 1+1 = %lu\n", result);
+        /* Allocate a stack for the ELF program (8KB) */
+        uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(2);
+        if (!elf_stack) {
+            serial_io_printf("Failed to allocate ELF stack!\n");
         } else {
-            serial_io_printf("WRONG! Expected 2, got %lu\n", result);
+            uint64_t stack_top = (uint64_t)elf_stack + 0x2000;
+            serial_io_printf("ELF stack allocated at: 0x%lx (top: 0x%lx)\n",
+                             (uint64_t)elf_stack, stack_top);
+
+            /* Call the entry point with its own stack */
+            serial_io_printf("Running ELF binary with syscall...\n");
+
+            uint64_t result;
+            asm volatile(
+                "mov %%rsp, %%r12\n\t"
+                "mov %1, %%rsp\n\t"
+                "call *%2\n\t"
+                "mov %%r12, %%rsp\n\t"
+                : "=a"(result)
+                : "r"(stack_top), "r"(test_prog.entry)
+                : "r12", "memory"
+            );
+
+            serial_io_printf("ELF binary returned: %lu\n", result);
+            serial_io_printf("=== ELF Syscall Test Complete ===\n");
         }
     } else {
         serial_io_printf("ELF load failed: %s\n", elf64_strerror(err));

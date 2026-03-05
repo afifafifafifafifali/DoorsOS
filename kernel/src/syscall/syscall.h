@@ -16,7 +16,11 @@
 #define SYS_GETPID  104
 
 // Syscall wrapper macro using int 0x80
-// Arguments: rax=syscall_num, rdi=arg1, rsi=arg2, rdx=arg3
+// Linux x86-64 syscall convention:
+//   rax = syscall number
+//   rdi = arg1 (fd for read/write)
+//   rsi = arg2 (buffer for read/write)
+//   rdx = arg3 (count for read/write)
 // Returns: result in rax
 static inline uint64_t syscall(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) {
     uint64_t ret;
@@ -29,13 +33,18 @@ static inline uint64_t syscall(uint64_t num, uint64_t arg1, uint64_t arg2, uint6
     return ret;
 }
 
-// Convenience wrappers
-static inline uint64_t sys_write(const char* buf, uint64_t count) {
-    return syscall(SYS_WRITE, (uint64_t)buf, count, 0);
+// Convenience wrappers - Linux convention: write(fd, buf, count)
+static inline uint64_t sys_write(int fd, const char* buf, uint64_t count) {
+    return syscall(SYS_WRITE, (uint64_t)fd, (uint64_t)buf, count);
 }
 
-static inline uint64_t sys_read(char* buf, uint64_t count) {
-    return syscall(SYS_READ, (uint64_t)buf, count, 0);
+static inline uint64_t sys_read(int fd, char* buf, uint64_t count) {
+    return syscall(SYS_READ, (uint64_t)fd, (uint64_t)buf, count);
+}
+
+// Simple wrappers for common cases (write to stdout, read from stdin)
+static inline uint64_t sys_print(const char* buf, uint64_t count) {
+    return syscall(SYS_WRITE, 1, (uint64_t)buf, count);
 }
 
 static inline void sys_exit(uint64_t code) {
@@ -54,6 +63,7 @@ static inline uint64_t sys_getpid() {
 void syscall_init();
 
 // Internal handler called from assembly (C convention)
-uint64_t syscall_handler_c(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3);
+// Args: arg1 (rdi), arg2 (rsi), arg3 (rdx), syscall_num (rcx)
+uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t num);
 
 #endif

@@ -1,4 +1,4 @@
-; Simple x86_64 ELF binary that does 1+1
+; x86_64 ELF binary that does syscall write using int 0x80
 ; Assemble: nasm -f elf64 test_add.S
 ; Link: ld -n -o test_add test_add.S
 
@@ -8,10 +8,19 @@ section .text
 global _start
 
 _start:
-    ; Do 1+1
-    mov rax, 1
-    mov rbx, 1
-    add rax, rbx        ; rax = 2 now
+    ; syscall: SYS_WRITE (1)
+    ; arg1: fd = 1 (stdout)
+    ; arg2: buffer pointer (RIP-relative)
+    ; arg3: length = 23
     
-    ; Return back to caller
+    lea rsi, [rel message]  ; RIP-relative address of message
+    mov rdi, 1              ; stdout
+    mov rdx, 23             ; length
+    mov rax, 1              ; SYS_WRITE
+    int 0x80
+    
+    ; Return (no exit syscall)
     ret
+
+section .rodata
+message: db "Hello from ELF binary!", 10
