@@ -113,7 +113,10 @@ static void cmd_time(void) {
 #include "../uacpi/tables.h"
 static void cmd_reboot(void) {
    
-    
+     uint8_t good = 0x02;
+    while (good & 0x02)
+        good = inb(0x64);
+    outb(0x64, 0xFE);
 }
  void cmd_shutdown(void){
     serial_io_printf("Hi\n");
@@ -231,7 +234,7 @@ static void cmd_rm(const char* filename) {
     }
 }
 
-static void cmd_cp(const char* src, const char* dst) {
+void cmd_cp(const char* src, const char* dst) {
     if (!src || !dst) {
         printf("Usage: cp <source> <destination>\n");
         return;
@@ -258,8 +261,8 @@ static void cmd_cp(const char* src, const char* dst) {
 
     printf("Copying %s (%u bytes) to %s...\n", src, size, dst);
 
-    // Use 64KB chunk buffer
-    const uint32_t CHUNK_SIZE = 71871;
+    // Use 1MB chunk buffer
+    const uint32_t CHUNK_SIZE = 1122304;
     uint8_t* chunk_buf = k_malloc(CHUNK_SIZE);
     if (!chunk_buf) {
         printf("Out of memory for buffer\n");

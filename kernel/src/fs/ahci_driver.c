@@ -38,13 +38,17 @@ static void* map_mmio(uintptr_t phys, size_t size) {
 static void stop_cmd(HBA_PORT* port) {
     port->cmd &= ~HBA_PxCMD_ST;
     port->cmd &= ~HBA_PxCMD_FRE;
-    int timeout = 100000;
-    while ((port->cmd & (HBA_PxCMD_FR | HBA_PxCMD_CR)) && --timeout > 0);
+    int timeout = 1000;
+    while ((port->cmd & (HBA_PxCMD_FR | HBA_PxCMD_CR)) && --timeout > 0) {
+        asm volatile("pause" ::: "memory");
+    }
 }
 
 static void start_cmd(HBA_PORT* port) {
-    int timeout = 100000;
-    while ((port->cmd & HBA_PxCMD_CR) && --timeout > 0);
+    int timeout = 1000;
+    while ((port->cmd & HBA_PxCMD_CR) && --timeout > 0) {
+        asm volatile("pause" ::: "memory");
+    }
     port->cmd |= HBA_PxCMD_FRE;
     port->cmd |= HBA_PxCMD_ST;
 }
@@ -97,7 +101,7 @@ static int find_cmdslot(HBA_PORT* port) {
 
 bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) {
     if (!port || !buf || !dma_buffer) return false;
-    if (count * 512 > 1024 * 1024) return false;
+    if (count == 0 || count > 2048) return false;
 
     port->is = (uint32_t)-1;
     int slot = find_cmdslot(port);
@@ -131,16 +135,28 @@ bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) 
     cmdfis->countl = count & 0xFF;
     cmdfis->counth = (count >> 8) & 0xFF;
 
-    int spin = 0;
-    while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) spin++;
-    if (spin == 1000000) return false;
+    // Wait for drive to be ready (BSY=0, DRQ=0)
+    int spin = 100000;
+    while (spin > 0) {
+        uint8_t stat = port->tfd & 0xFF;
+        if ((stat & ATA_DEV_BUSY) == 0 && (stat & ATA_DEV_DRQ) == 0) break;
+        asm volatile("pause" ::: "memory");
+        spin--;
+    }
+    if (spin == 0) return false;
 
     port->ci = 1 << slot;
 
-    int timeout = 1000000;
-    while (--timeout > 0) {
-        if (!(port->ci & (1 << slot))) break;
-        if (port->is & HBA_PxIS_TFES) return false;
+    // Wait for command completion
+    int timeout = 500000;
+    while (timeout > 0) {
+        uint32_t ci = port->ci;
+        if (!(ci & (1 << slot))) {
+            if (port->is & HBA_PxIS_TFES) return false;
+            break;
+        }
+        asm volatile("pause" ::: "memory");
+        timeout--;
     }
     if (timeout <= 0) return false;
 
@@ -150,7 +166,7 @@ bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) 
 
 bool ahci_write_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) {
     if (!port || !buf || !dma_buffer) return false;
-    if (count * 512 > 1024 * 1024) return false;
+    if (count == 0 || count > 2048) return false;
 
     // Copy data to DMA buffer
     memcpy(dma_buffer, buf, count * 512);
@@ -187,18 +203,39 @@ bool ahci_write_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf)
     cmdfis->countl = count & 0xFF;
     cmdfis->counth = (count >> 8) & 0xFF;
 
-    int spin = 0;
-    while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) spin++;
-    if (spin == 1000000) return false;
+    // Wait for drive to be ready (BSY=0, DRQ=0)
+    int spin = 100000;
+    while (spin > 0) {
+        uint8_t stat = port->tfd & 0xFF;
+        if ((stat & ATA_DEV_BUSY) == 0 && (stat & ATA_DEV_DRQ) == 0) break;
+        asm volatile("pause" ::: "memory");
+        spin--;
+    }
+    if (spin == 0) {
+        serial_io_printf("AHCI write: drive not ready at LBA %u\n", (uint32_t)lba);
+        return false;
+    }
 
     port->ci = 1 << slot;
 
-    int timeout = 1000000;
-    while (--timeout > 0) {
-        if (!(port->ci & (1 << slot))) break;
-        if (port->is & HBA_PxIS_TFES) return false;
+    // Wait for command completion
+    int timeout = 500000;
+    while (timeout > 0) {
+        uint32_t ci = port->ci;
+        if (!(ci & (1 << slot))) {
+            if (port->is & HBA_PxIS_TFES) {
+                serial_io_printf("AHCI write error at LBA %u\n", (uint32_t)lba);
+                return false;
+            }
+            break;
+        }
+        asm volatile("pause" ::: "memory");
+        timeout--;
     }
-    if (timeout <= 0) return false;
+    if (timeout <= 0) {
+        serial_io_printf("AHCI write timeout at LBA %u\n", (uint32_t)lba);
+        return false;
+    }
 
     return true;
 }

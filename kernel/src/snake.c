@@ -139,6 +139,7 @@ void snake_init(void) {
 
 void snake_run(void) {
     snake_init();
+    kbio_set_mode(KBIO_MODE_RAW);
     while (!game_over) {
         draw_board();
         handle_input();
@@ -151,5 +152,5 @@ void snake_run(void) {
     draw_rect(0, 0, BOARD_WIDTH * CELL_SIZE, BOARD_HEIGHT * CELL_SIZE, 0x000000);
     kprint_color_at(5, BOARD_HEIGHT / 2, "GAME OVER! Press q to exit", 0xFF0000, true, 0x000000, true);
 
-   
+   kbio_set_mode(KBIO_MODE_COOKED);
 }
