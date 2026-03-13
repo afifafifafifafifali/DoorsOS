@@ -180,17 +180,38 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
 
     // Get character from scancode
     char c = get_char_from_scancode(scancode, shift_pressed);
-    
+
     // Handle Ctrl combinations
     if (ctrl_pressed && c >= 'a' && c <= 'z') {
         c = c - 'a' + 1;
     }
-    
+
+    // Handle arrow keys - push ANSI escape sequences to ring buffer
+    if (!is_release) {
+        if (scancode == SCAN_UP) {
+            kbio_ring_push('\033');
+            kbio_ring_push('[');
+            kbio_ring_push('A');
+        } else if (scancode == SCAN_DOWN) {
+            kbio_ring_push('\033');
+            kbio_ring_push('[');
+            kbio_ring_push('B');
+        } else if (scancode == SCAN_LEFT) {
+            kbio_ring_push('\033');
+            kbio_ring_push('[');
+            kbio_ring_push('D');
+        } else if (scancode == SCAN_RIGHT) {
+            kbio_ring_push('\033');
+            kbio_ring_push('[');
+            kbio_ring_push('C');
+        }
+    }
+
     // Always add to ring buffer for non-blocking reads (raw)
     if (c != 0) {
         kbio_ring_push(c);
     }
-    
+
     // Store scancode event for games
     kbio_ring_push((char)(scancode | (is_release ? 0x80 : 0)));
 
@@ -237,6 +258,55 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
                 printfch("\b \b");
             }
             input_buffer[0] = '\0';
+            send_eoi_to_irq(1);
+            return;
+        }
+
+        // Handle arrow keys - emit ANSI escape sequences
+        if (scancode == SCAN_UP) {
+            if (buffer_pos + 3 < buffer_size) {
+                input_buffer[buffer_pos++] = '\033';
+                input_buffer[buffer_pos++] = '[';
+                input_buffer[buffer_pos++] = 'A';
+                input_buffer[buffer_pos] = '\0';
+                printfch("\033[A");
+            }
+            send_eoi_to_irq(1);
+            return;
+        }
+
+        if (scancode == SCAN_DOWN) {
+            if (buffer_pos + 3 < buffer_size) {
+                input_buffer[buffer_pos++] = '\033';
+                input_buffer[buffer_pos++] = '[';
+                input_buffer[buffer_pos++] = 'B';
+                input_buffer[buffer_pos] = '\0';
+                printfch("\033[B");
+            }
+            send_eoi_to_irq(1);
+            return;
+        }
+
+        if (scancode == SCAN_LEFT) {
+            if (buffer_pos + 3 < buffer_size) {
+                input_buffer[buffer_pos++] = '\033';
+                input_buffer[buffer_pos++] = '[';
+                input_buffer[buffer_pos++] = 'D';
+                input_buffer[buffer_pos] = '\0';
+                printfch("\033[D");
+            }
+            send_eoi_to_irq(1);
+            return;
+        }
+
+        if (scancode == SCAN_RIGHT) {
+            if (buffer_pos + 3 < buffer_size) {
+                input_buffer[buffer_pos++] = '\033';
+                input_buffer[buffer_pos++] = '[';
+                input_buffer[buffer_pos++] = 'C';
+                input_buffer[buffer_pos] = '\0';
+                printfch("\033[C");
+            }
             send_eoi_to_irq(1);
             return;
         }

@@ -58,6 +58,6 @@ void _start(void) {
     const char msg[] = "Hello, DoorsOS! HI FROM C FILE!\n";
     sys_print(msg, sizeof(msg)-1);
     donald_trump();
-    //return 0;
+    //return 0; 
 }
-//  gcc -nostdlib -nodefaultlibs -fno-stack-protector -fno-pie -Wl,-e,_start -o test_add hello.c
+//  gcc -nostdlib -nodefaultlibs -fno-stack-protector --save-temp  -Wl,-e,_start -o test_add hello.c

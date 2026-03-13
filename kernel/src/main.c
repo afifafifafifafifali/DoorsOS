@@ -393,10 +393,7 @@ void kmain(void) {
     printf("=== ELF Test Complete ===\n\n");
     /* ================================= */
 
-    serial_io_printf("Ticks before executing the cp command(pit is at 100hz): %d\n",timer_get_ticks());
-
-    cmd_cp("balls.exe","yourmom.exe");
-    serial_io_printf("Ticks after executing the cp command(pit is at 100hz): %d\n",timer_get_ticks());
+  
     initTasking();
     
 }

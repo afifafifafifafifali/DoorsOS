@@ -6,8 +6,8 @@
 #include "gui/colorama.h"
 #include <stdbool.h>
 #include "interrupts/timer.h"
-#define BOARD_WIDTH 40
-#define BOARD_HEIGHT 20
+#define BOARD_WIDTH 60
+#define BOARD_HEIGHT 80
 #define CELL_SIZE 10
 
 typedef struct {
@@ -114,6 +114,21 @@ static void handle_input(void) {
     serial_io_printf("Char c == %c\n",c);
     if (c == 0) return;  // No key pressed
 
+    // Check for ANSI escape sequence (arrow keys)
+    if (c == '\033') {
+        char seq = ps2_kbio_getchar_nb();
+        if (seq == '[') {
+            char arrow = ps2_kbio_getchar_nb();
+            switch (arrow) {
+                case 'A': if (dir != DOWN) { dir = UP; move_pending = true; } break;   // Up arrow
+                case 'B': if (dir != UP) { dir = DOWN; move_pending = true; } break;   // Down arrow
+                case 'C': if (dir != LEFT) { dir = RIGHT; move_pending = true; } break; // Right arrow
+                case 'D': if (dir != RIGHT) { dir = LEFT; move_pending = true; } break; // Left arrow
+            }
+        }
+        return;
+    }
+
     switch (c) {
         case 'w': if (dir != DOWN) { dir = UP; move_pending = true; } break;
         case 's': if (dir != UP) { dir = DOWN; move_pending = true; } break;
@@ -124,7 +139,7 @@ static void handle_input(void) {
 }
 
 void snake_init(void) {
-    snake_length = 4;
+    snake_length = 8;
     dir = RIGHT;
     move_pending = true;  // Move once at start
 
