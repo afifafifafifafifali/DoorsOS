@@ -239,47 +239,59 @@ typedef __intmax_t intmax_t;
 typedef __uintmax_t uintmax_t;
 # 10 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h" 2 3 4
 # 2 "hello.c" 2
-# 22 "hello.c"
 
-# 22 "hello.c"
+
+
+# 4 "hello.c"
 static inline uint64_t syscall(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) {
     uint64_t ret;
     asm volatile(
         "int $0x80"
         : "=a"(ret)
         : "a"(num), "D"(arg1), "S"(arg2), "d"(arg3)
-        : "rcx", "r11", "r8", "r9", "r10", "memory", "cc"
+        : "rcx","r11","r8","r9","r10","memory","cc"
     );
     return ret;
 }
-
-
-static inline uint64_t sys_write(int fd, const char* buf, uint64_t count) {
-    return syscall(1, (uint64_t)fd, (uint64_t)buf, count);
-}
-
-static inline uint64_t sys_read(int fd, char* buf, uint64_t count) {
-    return syscall(0, (uint64_t)fd, (uint64_t)buf, count);
-}
-
 
 static inline uint64_t sys_print(const char* buf, uint64_t count) {
     return syscall(1, 1, (uint64_t)buf, count);
 }
 
 
-int donald_trump(void){
-
-    for(int i = 0; i < 10; i++){
-        const char msg[] = "DONALD TRUMPET\n";
-        sys_print(msg, sizeof(msg)-1);
-    }
-    return 0;
-
+static void print_str(const char *s) {
+    const char *p = s;
+    while(*p) p++;
+    sys_print(s, p-s);
 }
-void _start(void) {
+
+void main_program(int argc, char **argv) {
+    for(int i = 0; i < argc; i++) {
+        print_str("argv[");
+        char c = '0' + i;
+        sys_print(&c, 1);
+        print_str("] = ");
+        print_str(argv[i]);
+        print_str("\n");
+    }
+}
+
+void _start(int argc, char **argv,char **envp) {
     const char msg[] = "Hello, DoorsOS! HI FROM C FILE!\n";
     sys_print(msg, sizeof(msg)-1);
-    donald_trump();
+    main_program(argc, argv);
 
+     print_str("Environment variables:\n");
+    if (!envp[0]) {
+        print_str("  <none>\n");
+    } else {
+        for (int i = 0; envp[i]; i++) {
+            print_str("envp[");
+            char c = '0' + i;
+            sys_print(&c, 1);
+            print_str("] = ");
+            print_str(envp[i]);
+            print_str("\n");
+        }
+}
 }

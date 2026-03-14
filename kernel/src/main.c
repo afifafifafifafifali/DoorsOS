@@ -369,20 +369,26 @@ void kmain(void) {
             serial_io_printf("ELF stack allocated at: 0x%lx (top: 0x%lx)\n",
                              (uint64_t)elf_stack, stack_top);
 
-            /* Call the entry point with its own stack */
+            /* Call the  fucking entry point with its own stack */
             serial_io_printf("Running ELF binary with syscall...\n");
 
-            uint64_t result;
-            asm volatile(
-                "mov %%rsp, %%r12\n\t"
-                "mov %1, %%rsp\n\t"
-                "call *%2\n\t"
-                "mov %%r12, %%rsp\n\t"
-                : "=a"(result)
-                : "r"(stack_top), "r"(test_prog.entry)
-                : "r12", "memory"
-            );
+          uint64_t result;
+            char *argv[] = { "program_name", "arg1", "arg2", NULL };
+            char *envp[] = {"HOME=/","KERNEL=/efi/boot","basharbai","nawfle","laden","obama",NULL};
+            uint64_t argc = 3;
 
+            asm volatile(
+                "mov %%rsp, %%r12\n\t"         // save old stack
+                "mov %4, %%rsp\n\t"            // switch to ELF stack
+                "mov %1, %%rdi\n\t"            // argc
+                "mov %2, %%rsi\n\t"            // argv
+                "mov %3, %%rdx\n\t"            // envp
+                "call *%5\n\t"                 // call ELF entry
+                "mov %%r12, %%rsp\n\t"         // restore old stack
+                : "=a"(result)
+                : "r"(argc), "r"(argv), "r"(envp), "r"(stack_top), "r"(test_prog.entry)
+                : "r12", "rdi", "rsi", "rdx", "memory"
+            );
             serial_io_printf("ELF binary returned: %lu\n", result);
             serial_io_printf("=== ELF Syscall Test Complete ===\n");
         }

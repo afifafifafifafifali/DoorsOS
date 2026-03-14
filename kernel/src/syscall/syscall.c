@@ -8,7 +8,7 @@
 // Syscall handler - called from assembly with args in registers
 // Args: arg1 (rdi), arg2 (rsi), arg3 (rdx), syscall_num (rcx)
 uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t num) {
-    serial_io_printf("SYSCALL IRQ IS CALLED--inside the handler_C");
+    //serial_io_printf("SYSCALL IRQ IS CALLED--inside the handler_C");
     uint64_t ret = 0;
 
     switch (num) {
