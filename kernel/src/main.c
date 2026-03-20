@@ -391,6 +391,7 @@ void kmain(void) {
             );
             serial_io_printf("ELF binary returned: %lu\n", result);
             serial_io_printf("=== ELF Syscall Test Complete ===\n");
+           elf64_unload(&test_prog);
         }
     } else {
         serial_io_printf("ELF load failed: %s\n", elf64_strerror(err));

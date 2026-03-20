@@ -87,7 +87,6 @@ void sound_play(uint32_t freq, uint32_t ms) {
     speaker_on();
     timer_sleep_ms(ms);
 
-    speaker_off();
 }
 
 void sound_init(void) {

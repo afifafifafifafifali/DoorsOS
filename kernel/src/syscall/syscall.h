@@ -4,16 +4,8 @@
 #include <stdint.h>
 
 // Syscall numbers (Linux-compatible where possible)
-#define SYS_READ    0
-#define SYS_WRITE   1
-#define SYS_OPEN    2
-#define SYS_CLOSE   3
-#define SYS_EXIT    60
-#define SYS_YIELD   100
-#define SYS_FORK    101
-#define SYS_EXEC    102
-#define SYS_WAIT    103
-#define SYS_GETPID  104
+
+#define SYS_WRITE   67671
 
 // Syscall wrapper macro using int 0x80
 // Linux x86-64 syscall convention:
@@ -38,26 +30,14 @@ static inline uint64_t sys_write(int fd, const char* buf, uint64_t count) {
     return syscall(SYS_WRITE, (uint64_t)fd, (uint64_t)buf, count);
 }
 
-static inline uint64_t sys_read(int fd, char* buf, uint64_t count) {
-    return syscall(SYS_READ, (uint64_t)fd, (uint64_t)buf, count);
-}
+
 
 // Simple wrappers for common cases (write to stdout, read from stdin)
 static inline uint64_t sys_print(const char* buf, uint64_t count) {
     return syscall(SYS_WRITE, 1, (uint64_t)buf, count);
 }
 
-static inline void sys_exit(uint64_t code) {
-    syscall(SYS_EXIT, code, 0, 0);
-}
 
-static inline void sys_yield() {
-    syscall(SYS_YIELD, 0, 0, 0);
-}
-
-static inline uint64_t sys_getpid() {
-    return syscall(SYS_GETPID, 0, 0, 0);
-}
 
 // Initialization
 void syscall_init();

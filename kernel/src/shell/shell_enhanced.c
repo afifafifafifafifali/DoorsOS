@@ -14,10 +14,11 @@
 #include "sghsc_logo.h"
 #include "../snake.h"
 #include "gui/colorama.h"
+#include "../elf.h"
 #include "gui/windows.h"
 #include "../tasks/task.h"
 #include "../syscall/syscall.h"
-
+#include "../ps2/sound.h"
 
 static char current_dir[256] = "/";
 
@@ -486,6 +487,44 @@ void shell_run(void) {
         } else if (strcmp(cmd,"crash") == 0){
             //trigger_div0();
             *(volatile int*)0x12345 = 1;
+        } else if(strcmp(cmd,"obamagusgus") == 0){
+                elf64_program_t test_prog;
+                elf_error_t err = elf64_load_file("/test_add", &test_prog);
+
+                if(err == ELF_OK){
+                    serial_io_printf("Allcing stack\n");
+                    uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(2);
+                    uint64_t stack_top = (uint64_t)elf_stack + 0x2000;
+
+
+                    serial_io_printf("ELF stack allocated at: 0x%lx (top: 0x%lx)\n",
+                             (uint64_t)elf_stack, stack_top);
+
+                    
+                    serial_io_printf("OBAMA #1\n");
+                    uint64_t result;
+                    
+                    serial_io_printf("OBAMA #2\n");
+                    char argv[4] = { };
+                    serial_io_printf("OBAMA #3\n");
+                    char envp[7] = {};
+                    serial_io_printf("OBAMA #4\n");
+                    uint64_t argc = 3;
+
+                    serial_io_printf("Running ELF binary with syscall...\n");
+                    asm volatile(
+                        "mov %%rsp, %%r12\n\t"         // save old stack
+                        "mov %4, %%rsp\n\t"            // switch to ELF stack
+                        "mov %1, %%rdi\n\t"            // argc
+                        "mov %2, %%rsi\n\t"            // argv
+                        "mov %3, %%rdx\n\t"            // envp
+                        "call *%5\n\t"                 // call ELF entry
+                        "mov %%r12, %%rsp\n\t"         // restore old stack
+                        : "=a"(result)
+                        : "r"(argc), "r"(argv), "r"(envp), "r"(stack_top), "r"(test_prog.entry)
+                        : "r12", "rdi", "rsi", "rdx", "memory"
+                    );
+                }
         }
         else if (strcmp(cmd, "cat") == 0) {
             cmd_cat(arg);
@@ -520,7 +559,69 @@ void shell_run(void) {
             snake_run();
         }else if(strcmp(cmd,"doorsfetch") == 0){
             print_doors_logo();
-        } else if(strcmp(cmd,"shutdown") == 0){
+        }  else if(strcmp(cmd,"eidfetch") == 0){
+
+
+        kprint_color("███████╗██╗██████╗     ███╗   ███╗██╗   ██╗██████╗  █████╗ ██████╗  █████╗ ██╗  ██╗\n",0xFFFF00,true,0x000000,true);
+        kprint_color("██╔════╝██║██╔══██╗    ████╗ ████║██║   ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗██║ ██╔╝\n",0xFFFF00,true,0x000000,true);
+        kprint_color("█████╗  ██║██║  ██║    ██╔████╔██║██║   ██║██████╔╝███████║██████╔╝███████║█████╔╝ \n",0xFFFF00,true,0x000000,true);
+        kprint_color("██╔══╝  ██║██║  ██║    ██║╚██╔╝██║██║   ██║██╔══██╗██╔══██║██╔══██╗██╔══██║██╔═██╗ \n",0xFFFF00,true,0x000000,true);
+        kprint_color("███████╗██║██████╔╝    ██║ ╚═╝ ██║╚██████╔╝██████║ ██║  ██║██║  ██║██║  ██║██║  ██╗\n",0xFFFF00,true,0x000000,true);
+        kprint_color("╚══════╝╚═╝╚═════╝     ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝\n",0xFFFF00,true,0x000000,true);
+        kprint_color("Eid Mubarak! May this blessed day bring peace, happiness, and prosperity to you and your loved ones.\n", 0xFFFFFF, true, 0x000000, true);
+        kprint_color("Wishing you joy, good health, and countless blessings.  -- From the DoorsOS developer\n", 0xFFFFFF, true, 0x000000, true);
+        // goofy ahh song doorsos can handle
+            // C Db E F
+            sound_play(261, 300); // C
+            timer_sleep_ms(70);
+
+            sound_play(277, 300); // Db
+            timer_sleep_ms(70);
+
+            sound_play(329, 400); // E 
+            timer_sleep_ms(90);
+
+            sound_play(349, 300); // F
+            timer_sleep_ms(80);
+
+
+            sound_play(392, 350); // G
+            timer_sleep_ms(80);
+
+            sound_play(415, 300); // Ab
+            timer_sleep_ms(70);
+
+            sound_play(392, 350); // G
+            timer_sleep_ms(80);
+
+            sound_play(349, 300); // F
+            timer_sleep_ms(80);
+
+
+            sound_play(329, 350); 
+            timer_sleep_ms(80);
+
+            sound_play(277, 300); 
+            timer_sleep_ms(70);
+
+            sound_play(261, 500); 
+            timer_sleep_ms(120);
+
+            sound_play(261, 250); 
+            timer_sleep_ms(60);
+
+            sound_play(329, 250); 
+            timer_sleep_ms(60);
+
+            sound_play(392, 300); 
+            timer_sleep_ms(70);
+
+            sound_play(523, 600); 
+            timer_sleep_ms(200);
+
+            speaker_off();
+        }
+         else if(strcmp(cmd,"shutdown") == 0){
              cmd_shutdown();
         } else if(strcmp(cmd,"echo") == 0) {
             printf("%s \n",arg);
