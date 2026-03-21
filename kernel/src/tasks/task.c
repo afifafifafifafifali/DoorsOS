@@ -73,7 +73,8 @@ void createTask(Task *task, void (*main)(), uint64_t flags, uint64_t cr3)
     task->regs.rflags = flags;
     task->regs.rip    = (uint64_t) main;
     task->regs.cr3    = cr3;
-    task->regs.rsp    = ((uint64_t) k_malloc(0xAf1f) + 0xFFF) & ~0xF;
+    uint64_t stack = (uint64_t) k_malloc(0x1000); // 4KB stack
+    task->regs.rsp = (stack + 0x1000) & ~0xF;
 
     task->next       = NULL;
     task->prev       = NULL;
