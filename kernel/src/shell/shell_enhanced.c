@@ -516,15 +516,17 @@ void shell_run(void) {
                     serial_io_printf("Running ELF binary with syscall...\n");
                     void (*entry)(uint64_t, char**, char**) = test_prog.entry;
 
-asm volatile(
-    "mov %0, %%rdi\n\t"
-    "mov %1, %%rsi\n\t"
-    "mov %2, %%rdx\n\t"
-    "call *%3\n\t"
-    :
-    : "r"(argc), "r"(argv), "r"(envp), "r"(entry)
-    : "rdi", "rsi", "rdx", "memory"
-);
+                    asm volatile(
+                     "mov %0, %%rdi\n\t"
+                    "mov %1, %%rsi\n\t"
+                    "mov %2, %%rdx\n\t"
+                    "call *%3\n\t"
+                    :
+                    : "r"(argc), "r"(argv), "r"(envp), "r"(entry)
+                    : "rdi", "rsi", "rdx", "memory"
+                );
+
+                elf64_unload(&test_prog);
                 }
         }
         else if (strcmp(cmd, "cat") == 0) {

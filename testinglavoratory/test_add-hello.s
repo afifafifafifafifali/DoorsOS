@@ -154,11 +154,55 @@ main_program:
 .LFE3:
 	.size	main_program, .-main_program
 	.section	.rodata
+	.align 8
 .LC3:
-	.string	"Environment variables:\n"
+	.ascii	"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam"
+	.ascii	" hendrerit nulla eget imperdiet varius. Cras at accumsan orc"
+	.ascii	"i, non sodales eros. Aenean tincidunt tellus justo, eu vulpu"
+	.ascii	"tate dui eleifend sit amet. Sed eu nunc volutpat, scelerisqu"
+	.ascii	"e libero in, euismod enim. Orci varius natoque penatibus et "
+	.ascii	"magnis dis parturient montes, nascetur ridiculus mus. Maecen"
+	.ascii	"as efficitur accumsan enim, in tempus justo dignissim ac. Do"
+	.ascii	"nec aliquam dignissim volutpat. Praesent mattis dui ac odio "
+	.ascii	"mattis luctus. Sed condimentum consectetur tempus. Sed vesti"
+	.ascii	"bulum erat eget pellentesque pharetra. Proin et luctus metus"
+	.ascii	".\n\nDonec malesuada ipsum tellus, eu consequat odio ullamco"
+	.ascii	"rper non. Proin cursus nec dolor vel porta. Aenean ac velit "
+	.ascii	"nisi. Proin nibh libero, tincidunt nec blandit nec, porttito"
+	.ascii	"r quis massa. Praesent pellentesque lectus eu orci malesuada"
+	.ascii	", quis ultrices tellus malesuada. Curabitur eu tristique dia"
+	.ascii	"m. Proin finibus nisi ligula, ut posuere diam elementum a.\n"
+	.ascii	"\nPraesent luctus venenatis dui eget pulvinar. Praesent just"
+	.ascii	"o urna, convallis eu fermentum vitae, lobortis id quam. Aliq"
+	.ascii	"uam non dolor finibus, laoreet mauris consectetur, maximus n"
+	.ascii	"eque. Aliquam sit amet commodo enim. Sed tempor pulvinar fel"
+	.ascii	"is, sit amet faucibus neque fermentum sed. Nulla et euismod "
+	.ascii	"nunc, at bibendum odio. Nam neque justo, sagittis ut nulla h"
+	.ascii	"endrerit, semper varius nisi. Donec nec mattis neque. Cras u"
+	.ascii	"ltrices ipsum sed lectus sollicitudin pellentesque. Duis max"
+	.ascii	"imus ligula magna. Sed aliquet dictum mi.\n\nVestibulum sit "
+	.ascii	"amet dolor eu turpis venenatis vulputate. Vestibulum sed ali"
+	.ascii	"quet libero. Fusce vestibulum nisi turpis, ac molestie est s"
+	.ascii	"agittis non. Nunc eu enim odio. Maecenas id felis neque. Cra"
+	.ascii	"s luctus metus vel orci tempor tempor. Sed nec erat lacus. S"
+	.ascii	"ed ultricies varius elit ac blandit. Vestibulum ut rutrum lo"
+	.ascii	"rem. Fusce varius, dolor at malesuada pretium, nulla nisi te"
+	.ascii	"mpus dolor, in vestibulum sem ante efficitur erat. Phasellus"
+	.ascii	" sed velit id justo egestas porta ut et massa.\n\nAenean pur"
+	.ascii	"us felis, semper a dapibus i"
+	.ascii	"d, posuere ac est. Morbi in pulvinar ligula. Sed ullamcorper"
+	.ascii	" sapien nec nulla sollicitudin sollicitudin. In viverra enim"
+	.ascii	" quis turpis facilisis, non mollis metus mollis. Donec sed e"
+	.ascii	"leifend mi. Duis ultricies odio ex, ultrices mattis ipsum te"
+	.ascii	"mpor et. Morbi rhoncus nulla sit amet arcu pulvinar bibendum"
+	.ascii	". Integer sed tellus faucibus, feugiat magna ac, luctus arcu"
+	.ascii	". Phasellus ul"
+	.string	"trices finibus nisi, in rutrum ante eleifend ac. Duis mi sapien, rhoncus ac enim id, molestie imperdiet sem. Ut id tortor in ligula viverra dignissim. Donec purus risus, blandit sed est nec, ullamcorper vestibulum ipsum. Etiam pharetra feugiat facilisis. \n"
 .LC4:
-	.string	"  <none>\n"
+	.string	"Environment variables:\n"
 .LC5:
+	.string	"  <none>\n"
+.LC6:
 	.string	"envp["
 	.text
 	.globl	_start
@@ -172,36 +216,41 @@ _start:
 	.cfi_offset 6, -16
 	movq	%rsp, %rbp
 	.cfi_def_cfa_register 6
-	subq	$96, %rsp
-	movl	%edi, -68(%rbp)
-	movq	%rsi, -80(%rbp)
-	movq	%rdx, -88(%rbp)
+	subq	$112, %rsp
+	movl	%edi, -84(%rbp)
+	movq	%rsi, -96(%rbp)
+	movq	%rdx, -104(%rbp)
 	movabsq	$4908972450905875784, %rax
 	movabsq	$2315223284149546863, %rdx
-	movq	%rax, -48(%rbp)
-	movq	%rdx, -40(%rbp)
+	movq	%rax, -64(%rbp)
+	movq	%rdx, -56(%rbp)
 	movabsq	$2327603797202848072, %rax
 	movabsq	$729940808559894595, %rdx
-	movq	%rax, -32(%rbp)
-	movq	%rdx, -24(%rbp)
-	movb	$0, -16(%rbp)
-	leaq	-48(%rbp), %rax
+	movq	%rax, -48(%rbp)
+	movq	%rdx, -40(%rbp)
+	movb	$0, -32(%rbp)
+	leaq	.LC3(%rip), %rax
+	movq	%rax, -16(%rbp)
+	leaq	-64(%rbp), %rax
 	movl	$32, %esi
 	movq	%rax, %rdi
 	call	sys_print
-	movq	-80(%rbp), %rdx
-	movl	-68(%rbp), %eax
+	movq	-16(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-96(%rbp), %rdx
+	movl	-84(%rbp), %eax
 	movq	%rdx, %rsi
 	movl	%eax, %edi
 	call	main_program
-	leaq	.LC3(%rip), %rax
+	leaq	.LC4(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
-	movq	-88(%rbp), %rax
+	movq	-104(%rbp), %rax
 	movq	(%rax), %rax
 	testq	%rax, %rax
 	jne	.L12
-	leaq	.LC4(%rip), %rax
+	leaq	.LC5(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	jmp	.L16
@@ -209,13 +258,13 @@ _start:
 	movl	$0, -4(%rbp)
 	jmp	.L14
 .L15:
-	leaq	.LC5(%rip), %rax
+	leaq	.LC6(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	movl	-4(%rbp), %eax
 	addl	$48, %eax
-	movb	%al, -49(%rbp)
-	leaq	-49(%rbp), %rax
+	movb	%al, -65(%rbp)
+	leaq	-65(%rbp), %rax
 	movl	$1, %esi
 	movq	%rax, %rdi
 	call	sys_print
@@ -225,7 +274,7 @@ _start:
 	movl	-4(%rbp), %eax
 	cltq
 	leaq	0(,%rax,8), %rdx
-	movq	-88(%rbp), %rax
+	movq	-104(%rbp), %rax
 	addq	%rdx, %rax
 	movq	(%rax), %rax
 	movq	%rax, %rdi
@@ -238,7 +287,7 @@ _start:
 	movl	-4(%rbp), %eax
 	cltq
 	leaq	0(,%rax,8), %rdx
-	movq	-88(%rbp), %rax
+	movq	-104(%rbp), %rax
 	addq	%rdx, %rax
 	movq	(%rax), %rax
 	testq	%rax, %rax

@@ -33,7 +33,10 @@ void yield()
         runningTask = runningTask->next;
     } while (runningTask->state != TASK_READY);
 
-    prev->state = TASK_READY;
+    //prev->state = TASK_READY;
+    if (prev->state != TASK_DEAD) {
+        prev->state = TASK_READY;
+    }
     runningTask->state = TASK_RUNNING;
     runningTask->slice = TASK_SLICE_DEFAULT;
 
@@ -149,11 +152,117 @@ static void blllM(){
 }
 
 
+extern Task* task_fork(void); // the fucking trampoline
+
+Task* task_fork_impl(uint64_t live_rsp, uint64_t return_addr)
+{
+    Task *child = (Task*) k_malloc(sizeof(Task));
+    if (!child) return NULL;
+
+    child->regs = runningTask->regs;
+
+    uint64_t child_stack_bottom = (uint64_t) k_malloc(0x1000);
+    if (!child_stack_bottom) return NULL;
+
+    uint64_t child_stack_top = (child_stack_bottom + 0x1000) & ~0xFULL;
+
+    uint64_t parent_stack_base = (live_rsp & ~0xFFFULL) + 0x1000;
+    uint64_t used              = parent_stack_base - live_rsp;
+    uint64_t child_rsp         = child_stack_top - used;
+
+    memcpy((void*) child_rsp, (void*) live_rsp, (size_t) used);
+
+    // live_rsp points at the return address word, child resumes
+    // after task_fork() in the caller — skip that word
+    child->regs.rsp = child_rsp + 8;
+    child->regs.rip = return_addr;
+    child->regs.rax = 0;
+
+    // zero caller-saved regs
+    child->regs.rcx = 0; child->regs.rdx = 0;
+    child->regs.rsi = 0; child->regs.rdi = 0;
+    child->regs.r8  = 0; child->regs.r9  = 0;
+    child->regs.r10 = 0; child->regs.r11 = 0;
+
+    child->state = TASK_READY;
+    child->slice = TASK_SLICE_DEFAULT;
+    child->id    = rand();
+
+    Task *next        = runningTask->next;
+    runningTask->next = child;
+    child->prev       = runningTask;
+    child->next       = next;
+    if (next) next->prev = child;
+
+    return child;
+}
 
 
-
-void getCurrentTaskPID(void){
+int getCurrentTaskPID(void){
     return runningTask->id;
+}
+
+// In task.c, add this test task and call taskCreate(&forkTest, forkTestMain) from initTasking()
+
+static Task forkTest;
+
+static void forkTestMain()
+{
+    serial_io_printf("[fork test] Task starting, PID=%d\n", getCurrentTaskPID());
+
+    Task *child = task_fork();  // calls the asm trampoline
+
+    /*
+     After fork returns:
+    - In PARENT: child != NULL (pointer to child Task)
+    - In CHILD: child == NULL (because rax was set to 0)
+    */
+    if (child) {
+        // PARENT PATH
+        serial_io_printf("[fork test] PARENT PID=%d: child born PID=%d\n",
+                         getCurrentTaskPID(), child->id);
+        while (1) {
+            serial_io_printf("[fork test] PARENT PID=%d heartbeat\n", 
+                           getCurrentTaskPID());
+            taskDie(0);
+            yield();
+        }
+    } else {
+        // CHILD PATH
+        serial_io_printf("[fork test] CHILD PID=%d: I was just born!\n",
+                         getCurrentTaskPID());
+        while (1) {
+            serial_io_printf("[fork test] CHILD PID=%d heartbeat\n",
+                             getCurrentTaskPID());
+            taskDie(0);
+            yield();
+        }
+    }
+}
+
+void taskDie(int err_code)
+{
+    serial_io_printf("[task %d] Exiting with code %d\n", runningTask->id, err_code);
+    
+    runningTask->state = TASK_DEAD;
+// FUCK OFF FROM RUN QUEUEUE
+    if (runningTask->prev) runningTask->prev->next = runningTask->next;
+    if (runningTask->next) runningTask->next->prev = runningTask->prev;
+
+    Task *prev = runningTask;
+    
+    do {
+        runningTask = runningTask->next;
+    } while (runningTask->state != TASK_READY);
+
+    runningTask->state = TASK_RUNNING;
+    runningTask->slice = TASK_SLICE_DEFAULT;
+
+    // THIS SWITCH WILL NEVER WORKS
+    switchTask(&prev->regs, &runningTask->regs);
+    
+    
+    __builtin_unreachable(); // gnu moo moo majic
 }
 // --- Tasking Init ---
 void initTasking()
@@ -183,6 +292,7 @@ void initTasking()
 
 
     taskCreate(&blll,blllM);
+    taskCreate(&forkTest,forkTestMain);
     // Enter multitasking
     yield();
 

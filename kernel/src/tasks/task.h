@@ -67,5 +67,6 @@ extern  Task *runningTask;
 void initTasking();
 void taskCreate(Task *task, void (*main)());
 void taskKill(Task *task);
-void getCurrentTaskPID(void);
+int getCurrentTaskPID(void);
+void taskDie(int err_code) __attribute__((noreturn));
 #endif
