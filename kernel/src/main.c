@@ -400,6 +400,54 @@ void kmain(void) {
     printf("=== ELF Test Complete ===\n\n");
     /* ================================= */
 
+    #include "interrupts/pipe.h"
+    serial_io_printf("=== PIPE TEST START ===\n");
+
+    pipe_t* p = pipe_create(64);
+    if (!p) {
+        serial_io_printf("pipe_create FAILED\n");
+        return;
+    }
+
+    serial_io_printf("pipe_create OK\n");
+
+    char msg[] = "hello from pipe!";
+    int wrotten = pipe_write(p, (uint8_t*)msg, sizeof(msg));
+
+    serial_io_printf("Written bytes: %d\n", wrotten);
+
+    char buf[64];
+    memset(buf, 0, sizeof(buf));
+
+    int read = pipe_read(p, (uint8_t*)buf, sizeof(buf));
+
+    serial_io_printf("Read bytes: %d\n", read);
+    serial_io_printf("Data read: %s\n", buf);
+
+    // Edge case: read from empty pipe
+    int read_empty = pipe_read(p, (uint8_t*)buf, sizeof(buf));
+    serial_io_printf("Read from empty pipe: %d (expected 0)\n", read_empty);
+
+    // Fill pipe fully
+    char big[128];
+    for (int i = 0; i < 128; i++) big[i] = 'A';
+
+    int big_write = pipe_write(p, (uint8_t*)big, 128);
+    serial_io_printf("Write beyond capacity: %d (should <= 64)\n", big_write);
+
+    // Close write end and try writing
+    pipe_close_write(p);
+    int write_closed = pipe_write(p, (uint8_t*)"x", 1);
+    serial_io_printf("Write after close: %d (expected -1)\n", write_closed);
+
+    // Close read end and try reading
+    pipe_close_read(p);
+    int read_closed = pipe_read(p, (uint8_t*)buf, 1);
+    serial_io_printf("Read after close: %d (expected -1)\n", read_closed);
+
+    pipe_destroy(p);
+
+    serial_io_printf("=== PIPE TEST END ===\n");
   
     initTasking();
     
