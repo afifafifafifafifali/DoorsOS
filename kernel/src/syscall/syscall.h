@@ -5,7 +5,7 @@
 
 // Syscall numbers (Linux-compatible where possible)
 
-#define SYS_WRITE   67671
+#define SYS_PRINT_WRITE   67671
 
 // Syscall wrapper macro using int 0x80
 // Linux x86-64 syscall convention:
@@ -26,15 +26,15 @@ static inline uint64_t syscall(uint64_t num, uint64_t arg1, uint64_t arg2, uint6
 }
 
 // Convenience wrappers - Linux convention: write(fd, buf, count)
-static inline uint64_t sys_write(int fd, const char* buf, uint64_t count) {
-    return syscall(SYS_WRITE, (uint64_t)fd, (uint64_t)buf, count);
+static inline uint64_t sys_print_write(int fd, const char* buf, uint64_t count) {
+    return syscall(SYS_PRINT_WRITE, (uint64_t)fd, (uint64_t)buf, count);
 }
 
 
 
 // Simple wrappers for common cases (write to stdout, read from stdin)
 static inline uint64_t sys_print(const char* buf, uint64_t count) {
-    return syscall(SYS_WRITE, 1, (uint64_t)buf, count);
+    return syscall(SYS_PRINT_WRITE, 1, (uint64_t)buf, count);
 }
 
 

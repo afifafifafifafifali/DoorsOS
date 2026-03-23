@@ -83,8 +83,14 @@ static void port_rebase(HBA_PORT* port, int portno) {
     HBA_CMD_HEADER* cmdheader = (HBA_CMD_HEADER*)clb;
     for (int i = 0; i < 32; i++) {
         cmdheader[i].prdtl = 8;
-        cmdheader[i].ctba = (uint32_t)(ctba_phys + i * 256);
-        cmdheader[i].ctbau = (uint32_t)((ctba_phys + i * 256) >> 32);
+        #define CMD_TBL_SIZE 256
+#define PRDT_ENTRY_SIZE 16
+#define PRDT_COUNT 8
+
+#define CMD_TBL_TOTAL (CMD_TBL_SIZE + PRDT_COUNT * PRDT_ENTRY_SIZE)
+
+cmdheader[i].ctba = (uint32_t)(ctba_phys + i * CMD_TBL_TOTAL);
+cmdheader[i].ctbau = (uint32_t)((ctba_phys + i * CMD_TBL_TOTAL) >> 32);
     }
     
     start_cmd(port);
@@ -100,12 +106,12 @@ static int find_cmdslot(HBA_PORT* port) {
 }
 
 bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) {
-    if (!port || !buf || !dma_buffer) return false;
-    if (count == 0 || count > 2048) return false;
+    if (!port || !buf || !dma_buffer) {serial_io_printf("RETURNING FROM AHCI READ FALSE\n");return false;}
+    if (count == 0 || count > 2048) {serial_io_printf("RETURNING FROM 1AHCI READ FALSE\n");return false;}
 
     port->is = (uint32_t)-1;
     int slot = find_cmdslot(port);
-    if (slot == -1) return false;
+    if (slot == -1) {serial_io_printf("RETURNING FROM 2AHCI READ FALSE\n");return false;}
 
     HBA_CMD_HEADER* cmdheader = (HBA_CMD_HEADER*)(HHDM_BASE + port->clb);
     cmdheader += slot;
@@ -136,14 +142,14 @@ bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) 
     cmdfis->counth = (count >> 8) & 0xFF;
 
     // Wait for drive to be ready (BSY=0, DRQ=0)
-    int spin = 100000;
+    int spin = 6000000;
     while (spin > 0) {
         uint8_t stat = port->tfd & 0xFF;
         if ((stat & ATA_DEV_BUSY) == 0 && (stat & ATA_DEV_DRQ) == 0) break;
         asm volatile("pause" ::: "memory");
         spin--;
     }
-    if (spin == 0) return false;
+    if (spin == 0) {serial_io_printf("RETURNING FROM 3AHCI READ FALSE\n");return false;}
 
     port->ci = 1 << slot;
 
@@ -152,13 +158,13 @@ bool ahci_read_sectors(HBA_PORT* port, uint64_t lba, uint32_t count, void* buf) 
     while (timeout > 0) {
         uint32_t ci = port->ci;
         if (!(ci & (1 << slot))) {
-            if (port->is & HBA_PxIS_TFES) return false;
+            if (port->is & HBA_PxIS_TFES) {serial_io_printf("RETURNING FROM 4AHCI READ FALSE\n");return false;}
             break;
         }
         asm volatile("pause" ::: "memory");
         timeout--;
     }
-    if (timeout <= 0) return false;
+    if (timeout <= 0) {serial_io_printf("RETURNING FROM 5AHCI READ FALSE\n");return false;}
 
     memcpy(buf, dma_buffer, count * 512);
     return true;

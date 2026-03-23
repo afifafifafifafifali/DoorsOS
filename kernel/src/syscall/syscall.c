@@ -12,7 +12,7 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t
     uint64_t ret = 0;
 
     switch (num) {
-        case SYS_WRITE: {
+        case SYS_PRINT_WRITE: {
             const char* str = (const char*)arg2;
             uint64_t len = arg3;
             for (uint64_t i = 0; i < len; i++) {

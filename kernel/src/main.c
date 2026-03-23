@@ -304,7 +304,7 @@ void kmain(void) {
     // Test syscalls
     printf("\n=== Testing int 0x80 Syscalls ===\n");
     const char* test_msg = "Hello from int 0x80 syscall!\n";
-    uint64_t written = sys_write(1, test_msg, strlen(test_msg));
+    uint64_t written = sys_print_write(1, test_msg, strlen(test_msg));
     printf("sys_write returned: %ld\n", written);
 
     printf("=== Syscall Test Complete YAY ===\n\n");
@@ -448,6 +448,9 @@ void kmain(void) {
     pipe_destroy(p);
 
     serial_io_printf("=== PIPE TEST END ===\n");
+    fd_test_complete();
+
+    cmd_cp("/govdb.csv","/nigga.csv");
   
     initTasking();
     
