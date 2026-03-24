@@ -386,14 +386,13 @@ elf_error_t elf64_load_file(const char *path, elf64_program_t *prog) {
 }
 
 void elf64_unload(elf64_program_t *prog) {
-    if (!prog) {
-        return;
-    }
+    if (!prog) return;
 
-    /* Free the image buffer if it was allocated */
-    if (prog->elf.image) {
+    if (prog->base && prog->size)
+        uacpi_kernel_unmap((void *)prog->base, prog->size);
+
+    if (prog->elf.image)
         free(prog->elf.image);
-    }
 
     memset(prog, 0, sizeof(elf64_program_t));
 }

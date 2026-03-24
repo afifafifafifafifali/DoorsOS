@@ -182,6 +182,40 @@ static void hcf(void) {
 /* ================== MAIN ============================= */
 /* ===================================================== */
 
+
+void paging_test_run(void) {
+    serial_io_printf("\n=== Paging unmap test ===\n");
+
+    // Pick some random virtual address nobody else is using
+    void* test_virt = (void*)0xFFFF900000000000;
+    void* test_phys = (void*)0x0000000000100000; // some known free phys page
+
+    // Map it
+    mapPage(test_virt, test_phys, 0x03); // present + writable
+    serial_io_printf("Mapped test page\n");
+
+    // Write to it
+    volatile uint64_t *ptr = (volatile uint64_t *)test_virt;
+    *ptr = 0xDEADBEEFCAFEBABE;
+    serial_io_printf("Wrote 0xDEADBEEFCAFEBABE\n");
+
+    // Read back
+    uint64_t val = *ptr;
+   serial_io_printf("Read back: 0x%lx  ", val);
+serial_io_printf("%s\n", val == 0xDEADBEEFCAFEBABE ? "[PASS]" : "[FAIL]");
+
+    // Unmap it
+    unmapPage(test_virt);
+    serial_io_printf("Unmapped test page\n");
+
+    // This should page fault (Vector 14)
+    serial_io_printf("About to access unmapped page - expect #PF...\n");
+    val = *ptr;
+
+    // Should never reach here
+    serial_io_printf("ERROR: should have page faulted! [FAIL]\n");
+}
+
 void kmain(void) {
 
     /* ========== Early CPU ========== */
@@ -221,6 +255,7 @@ void kmain(void) {
     vmm_test();
     initPML4();
 
+    
     printf("Memory OK\n");
 
     /* ========== GDT / IDT / PIC ========== */
@@ -240,7 +275,7 @@ void kmain(void) {
     asm volatile("sti");
 
     printf("Interrupts Ready\n");
-
+    
     timer_sleep_ms(3100);
     serial_io_printf("Ticks: %llu \n",timer_get_ticks());
         
@@ -449,6 +484,9 @@ void kmain(void) {
 
     serial_io_printf("=== PIPE TEST END ===\n");
     fd_test_complete();
+
+    serial_io_printf("=====Beginning le so test====\n");
+    so_test_run();
 
     cmd_cp("/govdb.csv","/nigga.csv");
   

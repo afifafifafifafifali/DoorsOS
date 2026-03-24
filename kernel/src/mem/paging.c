@@ -108,3 +108,46 @@ void* getPhysicalAddress(void* virtual_address) {
 
     return (void*)((pt->entries[pt_index].physical_address << 12) + offset);
 }
+
+
+void unmapPage(void* virtual_address) {
+    serial_io_printf("[ SHITTY CATHOLIC PAGING MANAGEMENT SYSTEM ] unmapPage called: virt=%p\n", virtual_address);
+
+    uintptr_t virtual_address_int = (uintptr_t)virtual_address;
+    uintptr_t hhdm = hhdm_request.response->offset;
+
+    uint64_t pml4_index = (virtual_address_int >> 39) & 0x1FF;
+    uint64_t pdpt_index = (virtual_address_int >> 30) & 0x1FF;
+    uint64_t pd_index   = (virtual_address_int >> 21) & 0x1FF;
+    uint64_t pt_index   = (virtual_address_int >> 12) & 0x1FF;
+
+    if (!pml4->entries[pml4_index].present) {
+        serial_io_printf("[ SHITTY CATHOLIC PAGING MANAGEMENT SYSTEM ] unmapPage: PML4 entry not present\n");
+        return;
+    }
+    PageTable* pdpt = (PageTable*)(hhdm + (pml4->entries[pml4_index].physical_address << 12));
+
+    if (!pdpt->entries[pdpt_index].present) {
+        serial_io_printf("[ SHITTY CATHOLIC PAGING MANAGEMENT SYSTEM ] unmapPage: PDPT entry not present\n");
+        return;
+    }
+    PageTable* pd = (PageTable*)(hhdm + (pdpt->entries[pdpt_index].physical_address << 12));
+
+    if (!pd->entries[pd_index].present) {
+        serial_io_printf("[ SHITTY CATHOLIC PAGING MANAGEMENT SYSTEM ] unmapPage: PD entry not present\n");
+        return;
+    }
+    PageTable* pt = (PageTable*)(hhdm + (pd->entries[pd_index].physical_address << 12));
+
+    // Clear the PT entry
+    memset(&pt->entries[pt_index], 0, sizeof(PageEntry));
+    flushTLB(virtual_address);
+
+    serial_io_printf("[ SHITTY CATHOLIC PAGING MANAGEMENT SYSTEM ] unmapPage: done\n");
+}
+
+void unmapPages(void* virtual_address, uint64_t size) {
+    uint64_t pages = (size + 4095) / 4096;
+    for (uint64_t i = 0; i < pages; i++)
+        unmapPage((void*)((uintptr_t)virtual_address + i * 4096));
+}

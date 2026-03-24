@@ -114,8 +114,8 @@ void uacpi_kernel_pci_device_close(uacpi_handle handle) {
 
 
 void uacpi_kernel_unmap(void *addr, uacpi_size len) {
-    (void)addr;
-    (void)len;
+    serial_io_printf("\n\n I,uacpi unmap is called \n\n");
+    unmapPages(addr, len);
 }
 
 // ------------------------------------

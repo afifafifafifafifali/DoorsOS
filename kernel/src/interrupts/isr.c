@@ -82,50 +82,7 @@ void exception_handler(interrupt_frame_t* frame)
 
     serial_io_printf(".text(current output location counter address)  lives at: 0xffffffff80000000\n");
 
-
-    // catfished code : https://git.evalyngoemer.com/evalynOS/evalynOS/src/branch/dev/kernel/src/utils/panic.c
-    printf("\x1b[0m");
-    printf("                                                                                                    \n");
-    printf("                                         @@@@@@@@@@@@@@@@@@@@@                                      \n");
-    printf("                                     @@@@                     @@@                                   \n");
-    printf("                                   @@                            @@                                 \n");
-    printf("                                 @@                                @@                               \n");
-    printf("                               @@                                    @@                             \n");
-    printf("                             @@                                       @@                            \n");
-    printf("                            @@                                          @                           \n");
-    printf("                           @@                                            @                          \n");
-    printf("                           @                                             @@                         \n");
-    printf("                          @                                               @@                        \n");
-    printf("                         @@                                               @@                        \n");
-    printf("                         @@                                                @                        \n");
-    printf("                         @                                                 @@                       \n");
-    printf("                        @@                                                  @                       \n");
-    printf("                        @@                                                  @                       \n");
-    printf("                       @@@                                                  @                       \n");
-    printf("                    @@@  @                                                 @@@@                     \n");
-    printf("                   @     @@                                                @@  @                    \n");
-    printf("                  @      @@                                                @@   @                   \n");
-    printf("                 @@       @@                                              @@    @                   \n");
-    printf("                 @@        @                                             @@@    @                   \n");
-    printf("                 @         @@    @@@@ @                                  @@     @@                  \n");
-    printf("                 @          @@   @ @@@ @                               @@       @@                  \n");
-    printf("                @@           @@ @@ @@  @ @             @@@@@@         @@        @@                  \n");
-    printf("                @@             @@@ @@  @@@@         @@@@  @@ @      @@          @@                  \n");
-    printf("                @@               @     @  @@@@   @@@@ @@  @@  @   @@            @@                  \n");
-    printf("                 @                @       @ @@  @  @   @      @@@@              @@                  \n");
-    printf("                 @               @        @@@@@@@@          @@@                 @@                  \n");
-    printf("                 @              @         @       @@@@@       @@                @                   \n");
-    printf("                 @@          @@@         @@           @         @              @@                   \n");
-    printf("                 @@         @@           @            @@         @@@           @@                   \n");
-    printf("                 @@         @           @@             @@          @@         @@                    \n");
-    printf("@@@@@@@@@@@@@@@@@@@        @            @@@@@@@@@@@@@@@@@@           @@       @@@@@@@@@@@@@@@@@@@@@@\n");
-    printf("                 @@       @            @@@              @@@            @@     @@                    \n");
-    printf("                  @@     @            @                   @@            @@   @@@                    \n");
-    printf("                  @@@   @            @                     @@            @   @@                     \n");
-    printf("                    @               @@                      @@              @@@                     \n");
-    printf("                     @             @@                        @@             @@                      \n");
-    printf("                      @           @                           @@           @                        \n");
-    printf("                       @@@@@@@@@@@                             @@@@@@@@@@@@                         \n");
+ 
 
     printf("\nSystem halted.\n");
 

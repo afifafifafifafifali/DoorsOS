@@ -148,6 +148,7 @@ $(IMAGE_NAME).hdd:  kernel
 	mcopy -i $(IMAGE_NAME).hdd@@1M kernel/bin/kernel ::/boot
 	mcopy -i $(IMAGE_NAME).hdd@@1M test.txt ::/
 	mcopy -i $(IMAGE_NAME).hdd@@1M test_add ::/
+	mcopy -i $(IMAGE_NAME).hdd@@1M test_lib.so ::/
 	mcopy -i $(IMAGE_NAME).hdd@@1M capitalism.csv ::/govdb.csv
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT

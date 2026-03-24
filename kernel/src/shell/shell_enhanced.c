@@ -529,6 +529,9 @@ void shell_run(void) {
                 elf64_unload(&test_prog);
                 }
         }
+        else if(strcmp(cmd,"sofilesareeasynow") == 0){
+            so_test_run();
+        }
         else if (strcmp(cmd, "cat") == 0) {
             cmd_cat(arg);
         } else if (strcmp(cmd, "mkdir") == 0) {
