@@ -139,7 +139,7 @@ $(IMAGE_NAME).iso: kernel
 $(IMAGE_NAME).hdd:  kernel
 	rm -f DoorsOS.hdd
 	@if [ ! -f $(IMAGE_NAME).hdd ]; then \
-		dd if=/dev/zero bs=1M count=358 of=$(IMAGE_NAME).hdd; \
+		dd if=/dev/zero bs=6M count=100 of=$(IMAGE_NAME).hdd; \
 		PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00 -m 1; \
 		./limine/limine bios-install $(IMAGE_NAME).hdd; \
 		mformat -F -v DOORSOS -i $(IMAGE_NAME).hdd@@1M ::; \

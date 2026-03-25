@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "../libs/string.h"
 #include "../gfx/serial_io.h"
+#include <stddef.h>
 #include "../physalloc.h"
 
 extern volatile struct limine_memmap_request memmap_request;
@@ -138,4 +139,33 @@ void* allocator_realloc(void* ptr, size_t new_size) {
     memcpy(new_ptr, ptr, old_size);
     allocator_free(ptr);
     return new_ptr;
+}
+
+static uint8_t* program_break = NULL;
+
+void* _sbrk(ptrdiff_t increment) {
+    
+    if (!program_break) program_break = heap_start;
+
+    void* prev = program_break;
+    void* next = program_break + increment;
+
+    if (next >= heap_end) return (void*)-1;  // out of memory
+    program_break = next;
+    return prev;
+}
+
+int brk(void* addr) {
+    if (!program_break) {
+        program_break = heap_start;  // initialize if not done
+    }
+
+    ptrdiff_t increment = (uint8_t*)addr - program_break;
+    void* result = _sbrk(increment);
+    if (result == (void*)-1) {
+        return -1;  // failure, can't extend heap
+    }
+
+    program_break = (uint8_t*)addr;
+    return 0;  // success
 }

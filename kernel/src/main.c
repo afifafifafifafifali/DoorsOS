@@ -104,6 +104,32 @@ void *memmove(void *dstptr, const void *srcptr, size_t size) {
   return dstptr;
 }
 
+void test_sbrk() {
+    serial_io_printf("Testing _sbrk\n");
+
+    void* p1 = _sbrk(1024);  // allocate 1 KiB
+    void* p2 = _sbrk(2048);  // allocate 2 KiB
+    void* p3 = _sbrk(0);     // current break
+
+    serial_io_printf("p1 = %p\n", p1);
+    serial_io_printf("p2 = %p\n", p2);
+    serial_io_printf("current break = %p\n", p3);
+}
+
+void test_brk() {
+    serial_io_printf("Testing brk\n");
+
+    void* current = _sbrk(0);           // get current break
+    serial_io_printf("Current break = %p\n", current);
+
+    void* new_addr = (uint8_t*)current + 4096; // move 4 KiB
+    if (brk(new_addr) == 0) {
+        serial_io_printf("brk success, new break = %p\n", _sbrk(0));
+    } else {
+        serial_io_printf("brk failed\n");
+    }
+}
+
 
 /* ===================================================== */
 /* ================== CPU HELPERS ====================== */
@@ -487,6 +513,10 @@ void kmain(void) {
 
     serial_io_printf("=====Beginning le so test====\n");
     so_test_run();
+
+    serial_io_printf("\n\n");
+    test_sbrk();
+    test_brk();
 
     cmd_cp("/govdb.csv","/nigga.csv");
   

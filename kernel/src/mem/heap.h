@@ -28,6 +28,8 @@ void* allocator_realloc(void* ptr, size_t new_size);
 
 void* allocator_malloc(size_t size);
 void allocator_free(void* ptr);
+void* _sbrk(ptrdiff_t increment);
+int brk(void* addr);
 
 #define malloc allocator_malloc
 #define free allocator_free
