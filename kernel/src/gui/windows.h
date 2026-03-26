@@ -51,5 +51,6 @@ void putPixel(int x, int y, uint32_t color);
 void draw_rect(int x, int y, int w, int h, uint32_t color);     
 void draw_circle(int cx, int cy, int radius, uint32_t color);  
 
+void drawImage64x64(int x0, int y0, unsigned char img[64][64][3]);
 // ===========================END OF ESSENTIALS ===============================================
 #endif // DOORS_WINDOWS_H

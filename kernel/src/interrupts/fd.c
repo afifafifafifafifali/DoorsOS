@@ -6,7 +6,7 @@
 #include "../gfx/serial_io.h"
 
 // File descriptor table
-static file_descriptor_t fd_table[MAX_FDS];
+file_descriptor_t fd_table[MAX_FDS];
 
 // Initialize file descriptor system
 void fd_init(void) {

@@ -5,8 +5,10 @@
 
 // Syscall numbers (Linux-compatible where possible)
 
+/*NOT LINUX COMPATIBLES,FOR TESTING ONLY*/
 #define SYS_PRINT_WRITE   67671
-
+#define SYS_LOAD_SO       67672
+/*END OF NOT LINUX COMPATIBLES,FOR TESTING ONLY*/
 // Syscall wrapper macro using int 0x80
 // Linux x86-64 syscall convention:
 //   rax = syscall number

@@ -9,16 +9,7 @@
  * List every function your test .so will call back into the kernel.
  * Add more as needed — the NULL sentinel must always be last.
  * -------------------------------------------------------------------------*/
-static const kernel_export_t kernel_exports[] = {
-    { "serial_io_printf",  (void *)serial_io_printf  },
-    { "malloc",            (void *)malloc             },
-    { "free",              (void *)free               },
-    { "memcpy",            (void *)memcpy             },
-    { "memset",            (void *)memset             },
-    { "strcmp",            (void *)strcmp             },
-    { "strlen",            (void *)strlen             },
-    { NULL, NULL }   /* sentinel — must be last */
-};
+
  
 /* -------------------------------------------------------------------------
  * Step 2: Function pointer types matching what test_lib.so exports.

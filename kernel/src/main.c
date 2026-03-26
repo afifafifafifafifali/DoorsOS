@@ -298,10 +298,13 @@ void kmain(void) {
     pit_init(100);
     init_idt();
 
+
     asm volatile("sti");
 
     printf("Interrupts Ready\n");
     
+  
+    void *gay = k_malloc(6969);
     timer_sleep_ms(3100);
     serial_io_printf("Ticks: %llu \n",timer_get_ticks());
         
@@ -517,6 +520,9 @@ void kmain(void) {
     serial_io_printf("\n\n");
     test_sbrk();
     test_brk();
+
+    
+ test_mmap_basic();
 
     cmd_cp("/govdb.csv","/nigga.csv");
   

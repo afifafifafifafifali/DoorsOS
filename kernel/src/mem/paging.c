@@ -47,22 +47,33 @@ static void allocateEntry(PageTable* table, size_t index, uint8_t flags) {
         while(1) __asm__("hlt");
     }
      serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] allocateEntry: virt_addr=%p\n", virt_addr);
-    
+
     uintptr_t hhdm = hhdm_request.response->offset;
     uintptr_t phys_addr = (uintptr_t)virt_addr - hhdm;
      serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] allocateEntry: phys_addr=0x%lx\n", phys_addr);
+
+    // Zero the allocated page FIRST using volatile writes
+    volatile uint64_t* ptr = (volatile uint64_t*)virt_addr;
+    for (int i = 0; i < 512; i++) {
+        ptr[i] = 0;
+    }
     
+    // Flush cache line for the page table entry we're about to modify
+    __asm__ volatile ("clflush (%0)" :: "r"(virt_addr));
+    __asm__ volatile ("mfence" ::: "memory");
+
     setPageTableEntry(&(table->entries[index]), flags, phys_addr >> 12, 0);
     
-    for (int i = 0; i < 4096; i++) {
-        ((uint8_t*)virt_addr)[i] = 0;
-    }
+    // Flush cache for the modified entry
+    __asm__ volatile ("clflush (%0)" :: "r"(&table->entries[index]));
+    __asm__ volatile ("mfence" ::: "memory");
+    
     serial_io_printf("[SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] allocateEntry: done\n");
 }
 
 void mapPage(void* virtual_address, void* physical_address, uint8_t flags) {
     serial_io_printf("[ SHITTY CATHOLIC PAGING MANAGEMENT  SYSTEM ] mapPage called: virt=%p phys=%p\n", virtual_address, physical_address);
-    
+
     uintptr_t virtual_address_int = (uintptr_t)virtual_address;
     uintptr_t physical_address_int = (uintptr_t)physical_address;
     uintptr_t hhdm = hhdm_request.response->offset;
@@ -71,25 +82,42 @@ void mapPage(void* virtual_address, void* physical_address, uint8_t flags) {
     uint64_t pdpt_index = (virtual_address_int >> 30) & 0x1FF;
     uint64_t pd_index = (virtual_address_int >> 21) & 0x1FF;
     uint64_t pt_index = (virtual_address_int >> 12) & 0x1FF;
+    
+    serial_io_printf("mapPage: indices PML4=%lu PDPT=%lu PD=%lu PT=%lu\n", 
+                     pml4_index, pdpt_index, pd_index, pt_index);
 
-    if (!pml4->entries[pml4_index].present)
+    if (!pml4->entries[pml4_index].present) {
+        serial_io_printf("mapPage: allocating PML4 entry %lu\n", pml4_index);
         allocateEntry(pml4, pml4_index, flags);
+        serial_io_printf("mapPage: PML4 entry allocated, entry value=0x%lx\n", *(uint64_t*)&pml4->entries[pml4_index]);
+    }
 
     PageTable* pdpt = (PageTable*)(hhdm + (pml4->entries[pml4_index].physical_address << 12));
+    serial_io_printf("mapPage: PDPT at %p, entry[%lu]=0x%lx (present=%d)\n", 
+                     pdpt, pdpt_index, *(uint64_t*)&pdpt->entries[pdpt_index], pdpt->entries[pdpt_index].present);
 
-    if (!pdpt->entries[pdpt_index].present) 
+    if (!pdpt->entries[pdpt_index].present) {
+        serial_io_printf("mapPage: allocating PDPT entry %lu\n", pdpt_index);
         allocateEntry(pdpt, pdpt_index, flags);
+        serial_io_printf("mapPage: PDPT entry allocated, value=0x%lx\n", *(uint64_t*)&pdpt->entries[pdpt_index]);
+    }
 
     PageTable* pd = (PageTable*)(hhdm + (pdpt->entries[pdpt_index].physical_address << 12));
+    serial_io_printf("mapPage: PD at %p\n", pd);
 
-    if (!pd->entries[pd_index].present) 
+    if (!pd->entries[pd_index].present) {
+        serial_io_printf("mapPage: allocating PD entry %lu\n", pd_index);
         allocateEntry(pd, pd_index, flags);
+        serial_io_printf("mapPage: PD entry allocated\n");
+    }
 
     PageTable* pt = (PageTable*)(hhdm + (pd->entries[pd_index].physical_address << 12));
+    serial_io_printf("mapPage: PT at %p\n", pt);
 
     setPageTableEntry(&(pt->entries[pt_index]), flags, physical_address_int >> 12, 0);
 
     flushTLB(virtual_address);
+    serial_io_printf("mapPage: done\n");
 }
 
 void* getPhysicalAddress(void* virtual_address) {

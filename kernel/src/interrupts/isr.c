@@ -49,8 +49,8 @@ void exception_handler(interrupt_frame_t* frame)
         printf("Vector %llu: Unknown\n", vec);serial_io_printf("Vector %llu: Unknown\n", vec);}
 
     printf("RIP:    0x%016llx\n", frame->rip);serial_io_printf("RIP:    0x%016llx\n", frame->rip);
-    printf("RSP:    0x%016llx\n", frame->rsp);serial_io_printf("RSP:    0x%016llx\n", frame->rsp);
-    printf("SS:     0x%016llx\n", frame->ss);serial_io_printf("SS:     0x%016llx\n", frame->ss);
+    printf("RSP:    0x%016llx (approx)\n", (uint64_t)frame + sizeof(interrupt_frame_t));serial_io_printf("RSP:    0x%016llx (approx)\n", (uint64_t)frame + sizeof(interrupt_frame_t));
+    printf("CS:     0x%016llx\n", frame->cs);serial_io_printf("CS:     0x%016llx\n", frame->cs);
     printf("ERR:    0x%016llx\n", frame->err_code);serial_io_printf("ERR:    0x%016llx\n", frame->err_code);
     printf("RFLAGS: 0x%016llx\n", frame->rflags);serial_io_printf("RFLAGS: 0x%016llx\n", frame->rflags);
 
@@ -74,7 +74,7 @@ void exception_handler(interrupt_frame_t* frame)
            frame->r12, frame->r13, frame->r14, frame->r15);
     serial_io_printf("R12=%016llx R13=%016llx R14=%016llx R15=%016llx\n",
            frame->r12, frame->r13, frame->r14, frame->r15);
-    
+
     uint64_t fault_addr;
     __asm__ volatile("mov %%cr2, %0" : "=r"(fault_addr));
 
@@ -82,7 +82,7 @@ void exception_handler(interrupt_frame_t* frame)
 
     serial_io_printf(".text(current output location counter address)  lives at: 0xffffffff80000000\n");
 
- 
+
 
     printf("\nSystem halted.\n");
 

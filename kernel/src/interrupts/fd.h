@@ -44,6 +44,9 @@ typedef struct {
 // Maximum number of file descriptors
 #define MAX_FDS 256
 
+// File descriptor table (extern for mmap access)
+extern file_descriptor_t fd_table[MAX_FDS];
+
 // Initialize file descriptor system
 void fd_init(void);
 

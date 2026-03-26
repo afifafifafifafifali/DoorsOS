@@ -7,6 +7,7 @@
 #include "uacpi/kernel_api.h"
 
 
+
 // Mostly bullshit from osdev.org
 /* -----------------------------------------------------------------------
  * Internal helpers

@@ -123,3 +123,12 @@ void draw_circle(int cx, int cy, int radius, uint32_t color) {
 }
 
 
+#include "colorama.h"
+
+void drawImage64x64(int x0, int y0, unsigned char img[64][64][3]) {
+    for (int y = 0; y < 64; y++) {
+        for (int x = 0; x < 64; x++) {
+            putPixel(x0 + x, y0 + y, RGB(img[y][x][0], img[y][x][1], img[y][x][2]));
+        }
+    }
+}

@@ -39,6 +39,16 @@ typedef enum {
     SO_ERR_OOM,               /* Out of memory                       */
 } so_error_t;
 
+static kernel_export_t kernel_exports[] = {
+    { "serial_io_printf",  (void *)serial_io_printf  },
+    { "malloc",            (void *)malloc             },
+    { "free",              (void *)free               },
+    { "memcpy",            (void *)memcpy             },
+    { "memset",            (void *)memset             },
+    { "strcmp",            (void *)strcmp             },
+    { "strlen",            (void *)strlen             },
+    { NULL, NULL }   /* sentinel — must be last */
+};
 /* -----------------------------------------------------------------------
  * API
  * -----------------------------------------------------------------------*/

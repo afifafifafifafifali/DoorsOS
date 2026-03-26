@@ -4,6 +4,7 @@
 #include "../ps2/kbio.h"
 #include "../mem/paging.h"
 #include "../gfx/serial_io.h"
+#include "../so_loader.h"
 
 // Syscall handler - called from assembly with args in registers
 // Args: arg1 (rdi), arg2 (rsi), arg3 (rdx), syscall_num (rcx)
@@ -19,6 +20,13 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t
                 serial_io_putchar(str[i]);
             }
             ret = len;
+            break;
+        }
+        case SYS_LOAD_SO: {
+            const char* path = (const char*) arg1;
+            so_module_t mod;
+            so_error_t  err = so_load_file("/test_lib.so", kernel_exports, &mod);
+            return (uint64_t) &mod;
             break;
         }
 

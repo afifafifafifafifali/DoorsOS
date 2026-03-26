@@ -1,4 +1,5 @@
 #!/bin/bash
+make clean
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/sugma.ssh
 git add .
