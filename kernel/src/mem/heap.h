@@ -5,6 +5,9 @@
 
 // nigga nigga nigga
 
+// Global program break for brk syscall
+extern uint8_t* program_break;
+
 typedef struct FreeBlock {
     size_t size;
     struct FreeBlock* next;

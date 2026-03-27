@@ -49,6 +49,12 @@ static kernel_export_t kernel_exports[] = {
     { "strlen",            (void *)strlen             },
     { NULL, NULL }   /* sentinel — must be last */
 };
+
+/* Get kernel export table (for syscall use) */
+static inline const kernel_export_t* get_kernel_exports(void) {
+    return kernel_exports;
+}
+
 /* -----------------------------------------------------------------------
  * API
  * -----------------------------------------------------------------------*/

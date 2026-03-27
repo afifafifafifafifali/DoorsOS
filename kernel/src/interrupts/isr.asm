@@ -147,43 +147,44 @@ IRQ_NOERR i
 ; ==========================================
 ; SYSCALL handler (int 0x80)
 ; ==========================================
-; Syscall convention:
+; Syscall convention (6 arguments):
 ;   rax = syscall number
 ;   rdi = arg1
 ;   rsi = arg2
 ;   rdx = arg3
+;   r10 = arg4
+;   r8  = arg5
+;   r9  = arg6
 ; Returns: result in rax
-;
-; Minimal stub - only saves necessary registers
 
 syscall_stub:
-    ; Save registers and syscall args
-    ; Stack layout after pushes (rsp points to last pushed):
-    ; [rsp+0]  = rax (syscall number)
-    ; [rsp+8]  = rdx (arg3)
-    ; [rsp+16] = rsi (arg2)
-    ; [rsp+24] = rdi (arg1)
-    ; [rsp+32] = r11
-    ; [rsp+40] = rcx
-    ; [rsp+48+] = RIP, CS, RFLAGS (from CPU)
-
     push rcx
     push r11
-    push rdi
-    push rsi
-    push rdx
+    push r9               ; arg6
+    push r8               ; arg5
+    push r10              ; arg4
+    push rdi              ; arg1
+    push rsi              ; arg2
+    push rdx              ; arg3
     push rax              ; syscall number
 
-    ; Call handler: syscall_handler_c(arg1, arg2, arg3, syscall_num)
-    mov rdi, [rsp+24]     ; arg1 = original rdi (fd)
-    mov rsi, [rsp+16]     ; arg2 = original rsi (buffer)
-    mov rdx, [rsp+8]      ; arg3 = original rdx (length)
-    mov rcx, [rsp+0]      ; syscall number (for debugging)
-    call syscall_handler_c
+    ; Load syscall number into a temp register BEFORE pushing
+    mov r11, [rsp+0]      ; r11 = syscall number
 
-    ; Return value is already in rax
-    ; Restore and return
-    add rsp, 48           ; clean up stack (6 pushes * 8 bytes)
+    ; Pass args to C function
+    mov rdi, [rsp+24]     ; arg1
+    mov rsi, [rsp+16]     ; arg2
+    mov rdx, [rsp+8]      ; arg3
+    mov rcx, [rsp+32]     ; arg4
+    mov r8,  [rsp+40]     ; arg5
+    mov r9,  [rsp+48]     ; arg6
+    
+    ; 7th argument on stack
+    push r11              ; syscall number
+    call syscall_handler_c
+    add rsp, 8
+
+    add rsp, 72
     iretq
 
 ; ==========================================

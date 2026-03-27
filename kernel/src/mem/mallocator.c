@@ -17,6 +17,9 @@ static uint8_t* heap_start = NULL;
 static uint8_t* heap_end = NULL;
 static FreeBlock* free_list = NULL;
 
+// Global program break for brk syscall
+uint8_t* program_break = NULL;
+
 
 
 void allocator_init(void) {
@@ -30,6 +33,9 @@ void allocator_init(void) {
 
             // Reserve this physical region in PhysAlloc so PMM doesn't touch it
             phys_alloc_reserve(entry->base, HEAP_SIZE);
+
+            // Initialize program break to heap start
+            program_break = heap_start;
 
             free_list = (FreeBlock*)heap_start;
             free_list->size = HEAP_SIZE - sizeof(FreeBlock);
@@ -141,10 +147,7 @@ void* allocator_realloc(void* ptr, size_t new_size) {
     return new_ptr;
 }
 
-static uint8_t* program_break = NULL;
-
 void* _sbrk(ptrdiff_t increment) {
-    
     if (!program_break) program_break = heap_start;
 
     void* prev = program_break;
