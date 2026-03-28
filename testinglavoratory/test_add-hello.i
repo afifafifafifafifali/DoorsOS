@@ -239,11 +239,23 @@ typedef __intmax_t intmax_t;
 typedef __uintmax_t uintmax_t;
 # 10 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h" 2 3 4
 # 2 "hello.c" 2
+# 1 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h" 1 3 4
+# 145 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h" 3 4
+typedef long int ptrdiff_t;
+# 214 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h" 3 4
+typedef long unsigned int size_t;
+# 329 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h" 3 4
+typedef int wchar_t;
+# 425 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h" 3 4
+typedef struct {
+  long long __max_align_ll __attribute__((__aligned__(__alignof__(long long))));
+  long double __max_align_ld __attribute__((__aligned__(__alignof__(long double))));
+# 436 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h" 3 4
+} max_align_t;
+# 3 "hello.c" 2
+# 31 "hello.c"
 
-
-
-
-# 5 "hello.c"
+# 31 "hello.c"
 static inline uint64_t syscall(uint64_t num, uint64_t arg1, uint64_t arg2,
                                 uint64_t arg3, uint64_t arg4, uint64_t arg5,
                                 uint64_t arg6) {
@@ -261,16 +273,37 @@ static inline uint64_t syscall(uint64_t num, uint64_t arg1, uint64_t arg2,
     return ret;
 }
 
+static inline uint64_t syscall0(uint64_t num) {
+    return syscall(num, 0, 0, 0, 0, 0, 0);
+}
+
+static inline uint64_t syscall1(uint64_t num, uint64_t arg1) {
+    return syscall(num, arg1, 0, 0, 0, 0, 0);
+}
+
+static inline uint64_t syscall2(uint64_t num, uint64_t arg1, uint64_t arg2) {
+    return syscall(num, arg1, arg2, 0, 0, 0, 0);
+}
+
 static inline uint64_t syscall3(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3) {
     return syscall(num, arg1, arg2, arg3, 0, 0, 0);
 }
 
-static inline uint64_t sys_print(const char* buf, uint64_t count) {
-    return syscall3(67671, 1, (uint64_t)buf, count);
+static inline uint64_t syscall6(uint64_t num, uint64_t arg1, uint64_t arg2,
+                                uint64_t arg3, uint64_t arg4, uint64_t arg5,
+                                uint64_t arg6) {
+    return syscall(num, arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
-static inline int64_t syscall1(uint64_t num, uint64_t arg1) {
-    return syscall(num, arg1, 0, 0, 0, 0, 0);
+
+
+
+static inline uint64_t sys_print_write(int fd, const char* buf, uint64_t count) {
+    return syscall3(67671, (uint64_t)fd, (uint64_t)buf, count);
+}
+
+static inline uint64_t sys_fuck_you(void) {
+    return syscall(67673, 11, 22, 33, 44, 55, 66);
 }
 
 struct utsname {
@@ -280,23 +313,37 @@ struct utsname {
     char version[65];
     char machine[65];
 };
+
 static inline int64_t sys_uname(struct utsname* buf) {
     return syscall1(63, (uint64_t)buf);
 }
 
-
-static inline uint64_t sys_fuck_you(){
-    return syscall(67673,11,22,33,44,55,66);
+static inline int64_t sys_lseek(int fd, int64_t offset, int whence) {
+    return syscall3(49, (uint64_t)fd, (uint64_t)offset, (uint64_t)whence);
 }
+
+static inline void* sys_mmap(void* addr, uint64_t length, int prot, int flags,
+                             int fd, int64_t offset) {
+    return (void*)syscall6(214, (uint64_t)addr, length, (uint64_t)prot,
+                           (uint64_t)flags, (uint64_t)fd, (uint64_t)offset);
+}
+
+static inline int64_t sys_munmap(void* addr, uint64_t length) {
+    return syscall2(215, (uint64_t)addr, length);
+}
+
+
+
+
 static void print_str(const char *s) {
     const char *p = s;
     while(*p) p++;
-    sys_print(s, p - s);
+    sys_print_write(1, s, p - s);
 }
 
 static void print_int(int num) {
     if (num == 0) {
-        sys_print("0", 1);
+        sys_print_write(1, "0", 1);
         return;
     }
 
@@ -318,6 +365,60 @@ static void print_int(int num) {
         buf[i++] = '-';
     }
 
+    for (int j = 0; j < i / 2; j++) {
+        char tmp = buf[j];
+        buf[j] = buf[i - j - 1];
+        buf[i - j - 1] = tmp;
+    }
+
+    sys_print_write(1, buf, i);
+}
+
+static void print_hex(uint64_t num) {
+    if (num == 0) {
+        sys_print_write(1, "0x0", 3);
+        return;
+    }
+
+    char buf[20];
+    int i = 0;
+
+    while (num > 0) {
+        int digit = num % 16;
+        buf[i++] = (digit < 10) ? ('0' + digit) : ('a' + digit - 10);
+        num /= 16;
+    }
+
+    sys_print_write(1, "0x", 2);
+    for (int j = i - 1; j >= 0; j--) {
+        char c[1] = {buf[j]};
+        sys_print_write(1, c, 1);
+    }
+}
+
+static void print_long(int64_t num) {
+    if (num == 0) {
+        sys_print_write(1, "0", 1);
+        return;
+    }
+
+    char buf[25];
+    int i = 0;
+    int is_negative = 0;
+
+    if (num < 0) {
+        is_negative = 1;
+        num = -num;
+    }
+
+    while (num > 0) {
+        buf[i++] = '0' + (num % 10);
+        num /= 10;
+    }
+
+    if (is_negative) {
+        buf[i++] = '-';
+    }
 
     for (int j = 0; j < i / 2; j++) {
         char tmp = buf[j];
@@ -325,10 +426,200 @@ static void print_int(int num) {
         buf[i - j - 1] = tmp;
     }
 
-    sys_print(buf, i);
+    sys_print_write(1, buf, i);
 }
 
+
+
+
+
+void test_uname() {
+    print_str("\n=== TEST: sys_uname ===\n");
+
+    struct utsname u;
+    int64_t ret = sys_uname(&u);
+
+    if (ret == 0) {
+        print_str("  sysname:   ");
+        print_str(u.sysname);
+        print_str("\n");
+
+        print_str("  nodename:  ");
+        print_str(u.nodename);
+        print_str("\n");
+
+        print_str("  release:   ");
+        print_str(u.release);
+        print_str("\n");
+
+        print_str("  version:   ");
+        print_str(u.version);
+        print_str("\n");
+
+        print_str("  machine:   ");
+        print_str(u.machine);
+        print_str("\n");
+
+        print_str("  [PASS] sys_uname succeeded\n");
+    } else {
+        print_str("  [FAIL] sys_uname failed with return: ");
+        print_long(ret);
+        print_str("\n");
+    }
+}
+
+void test_lseek() {
+    print_str("\n=== TEST: sys_lseek ===\n");
+
+    int64_t ret;
+
+    ret = sys_lseek(-1, 100, 0);
+    print_str("  lseek(-1, 100, SEEK_SET) = ");
+    print_long(ret);
+    print_str(" (expected: negative/error)\n");
+
+    ret = sys_lseek(0, 0, 1);
+    print_str("  lseek(0, 0, SEEK_CUR) = ");
+    print_long(ret);
+    print_str("\n");
+
+    ret = sys_lseek(1, 0, 1);
+    print_str("  lseek(1, 0, SEEK_CUR) = ");
+    print_long(ret);
+    print_str("\n");
+
+    print_str("  [INFO] lseek tested\n");
+}
+
+void test_mmap_anonymous() {
+    print_str("\n=== TEST: sys_mmap (anonymous) ===\n");
+
+    print_str("  Test 1: Basic anonymous mapping (4KB, RW)\n");
+    void* addr1 = sys_mmap(
+# 270 "hello.c" 3 4
+                          ((void *)0)
+# 270 "hello.c"
+                              , 4096, 0x1 | 0x2,
+                           0x20 | 0x02, -1, 0);
+
+    if (addr1 == (void*)-1 || addr1 == 
+# 273 "hello.c" 3 4
+                                      ((void *)0)
+# 273 "hello.c"
+                                          ) {
+        print_str("    [FAIL] mmap returned NULL/-1\n");
+    } else {
+        print_str("    [PASS] mmap returned: ");
+        print_hex((uint64_t)addr1);
+        print_str("\n");
+
+        volatile uint64_t* ptr = (volatile uint64_t*)addr1;
+        ptr[0] = 0xDEADBEEFCAFEBABEULL;
+        ptr[1] = 0x1234567890ABCDEFULL;
+
+        print_str("    Read back: ");
+        print_hex(ptr[0]);
+        print_str(", ");
+        print_hex(ptr[1]);
+        print_str("\n");
+
+        if (ptr[0] == 0xDEADBEEFCAFEBABEULL && ptr[1] == 0x1234567890ABCDEFULL) {
+            print_str("    [PASS] Memory verification OK\n");
+        } else {
+            print_str("    [FAIL] Memory verification FAILED\n");
+        }
+
+        int64_t unmap_ret = sys_munmap(addr1, 4096);
+        print_str("    munmap returned: ");
+        print_long(unmap_ret);
+        print_str("\n");
+    }
+
+    print_str("\n  Test 2: Larger mapping (8KB)\n");
+    void* addr2 = sys_mmap(
+# 303 "hello.c" 3 4
+                          ((void *)0)
+# 303 "hello.c"
+                              , 8192, 0x1 | 0x2,
+                           0x20 | 0x02, -1, 0);
+
+    if (addr2 == (void*)-1 || addr2 == 
+# 306 "hello.c" 3 4
+                                      ((void *)0)
+# 306 "hello.c"
+                                          ) {
+        print_str("    [FAIL] mmap returned NULL/-1\n");
+    } else {
+        print_str("    [PASS] mmap returned: ");
+        print_hex((uint64_t)addr2);
+        print_str("\n");
+
+        volatile uint8_t* bytes = (volatile uint8_t*)addr2;
+        for (int i = 0; i < 8192; i++) {
+            bytes[i] = (uint8_t)(i & 0xFF);
+        }
+
+        int pass = 1;
+        for (int i = 0; i < 8192; i++) {
+            if (bytes[i] != (uint8_t)(i & 0xFF)) {
+                pass = 0;
+                break;
+            }
+        }
+
+        if (pass) {
+            print_str("    [PASS] 8KB pattern OK\n");
+        } else {
+            print_str("    [FAIL] Pattern FAILED\n");
+        }
+
+        sys_munmap(addr2, 8192);
+    }
+
+    print_str("\n  Test 3: Multiple mappings\n");
+    void* m1 = sys_mmap(
+# 336 "hello.c" 3 4
+                       ((void *)0)
+# 336 "hello.c"
+                           , 4096, 0x1 | 0x2, 0x20 | 0x02, -1, 0);
+    void* m2 = sys_mmap(
+# 337 "hello.c" 3 4
+                       ((void *)0)
+# 337 "hello.c"
+                           , 4096, 0x1 | 0x2, 0x20 | 0x02, -1, 0);
+    void* m3 = sys_mmap(
+# 338 "hello.c" 3 4
+                       ((void *)0)
+# 338 "hello.c"
+                           , 4096, 0x1 | 0x2, 0x20 | 0x02, -1, 0);
+
+    print_str("    m1="); print_hex((uint64_t)m1); print_str("\n");
+    print_str("    m2="); print_hex((uint64_t)m2); print_str("\n");
+    print_str("    m3="); print_hex((uint64_t)m3); print_str("\n");
+
+    if (m1 && m1 != (void*)-1) ((volatile uint64_t*)m1)[0] = 0xAAAA;
+    if (m2 && m2 != (void*)-1) ((volatile uint64_t*)m2)[0] = 0xBBBB;
+    if (m3 && m3 != (void*)-1) ((volatile uint64_t*)m3)[0] = 0xCCCC;
+
+    print_str("    Values: ");
+    if (m1 && m1 != (void*)-1) print_hex(((volatile uint64_t*)m1)[0]);
+    print_str(", ");
+    if (m2 && m2 != (void*)-1) print_hex(((volatile uint64_t*)m2)[0]);
+    print_str(", ");
+    if (m3 && m3 != (void*)-1) print_hex(((volatile uint64_t*)m3)[0]);
+    print_str("\n");
+
+    if (m1 && m1 != (void*)-1) sys_munmap(m1, 4096);
+    if (m2 && m2 != (void*)-1) sys_munmap(m2, 4096);
+    if (m3 && m3 != (void*)-1) sys_munmap(m3, 4096);
+}
+
+
+
+
 void main_program(int argc, char **argv) {
+    print_str("\n=== Unix Syscall Tests ===\n");
+
     for(int i = 0; i < argc; i++) {
         print_str("argv[");
         print_int(i);
@@ -336,98 +627,33 @@ void main_program(int argc, char **argv) {
         print_str(argv[i]);
         print_str("\n");
     }
+
+    test_uname();
+    test_lseek();
+    test_mmap_anonymous();
+
+    print_str("\n=== All Tests Complete ===\n");
 }
 
-void print_uname() {
-    struct utsname u;
-    if (sys_uname(&u) == 0) {
-        print_str("sysname: ");
-        print_str(u.sysname);
-        print_str("\n");
-
-        print_str("nodename: ");
-        print_str(u.nodename);
-        print_str("\n");
-
-        print_str("release: ");
-        print_str(u.release);
-        print_str("\n");
-
-        print_str("version: ");
-        print_str(u.version);
-        print_str("\n");
-
-        print_str("machine: ");
-        print_str(u.machine);
-        print_str("\n");
-    } else {
-        print_str("sys_uname failed\n");
-    }
-}
 void _start(int argc, char **argv, char **envp) {
-    const char msg[] = "Hello, DoorsOS! HI FROM C FILE!\n";
-    char *msgfake =
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam hendrerit "
-      "nulla eget imperdiet varius. Cras at accumsan orci, non sodales eros. "
-      "Aenean tincidunt tellus justo, eu vulputate dui eleifend sit amet. Sed "
-      "eu nunc volutpat, scelerisque libero in, euismod enim. Orci varius "
-      "natoque penatibus et magnis dis parturient montes, nascetur ridiculus "
-      "mus. Maecenas efficitur accumsan enim, in tempus justo dignissim ac. "
-      "Donec aliquam dignissim volutpat. Praesent mattis dui ac odio mattis "
-      "luctus. Sed condimentum consectetur tempus. Sed vestibulum erat eget "
-      "pellentesque pharetra. Proin et luctus metus.\n"
-      "\n"
-      "Donec malesuada ipsum tellus, eu consequat odio ullamcorper non. Proin "
-      "cursus nec dolor vel porta. Aenean ac velit nisi. Proin nibh libero, "
-      "tincidunt nec blandit nec, porttitor quis massa. Praesent pellentesque "
-      "lectus eu orci malesuada, quis ultrices tellus malesuada. Curabitur eu "
-      "tristique diam. Proin finibus nisi ligula, ut posuere diam elementum "
-      "a.\n"
-      "\n"
-      "Praesent luctus venenatis dui eget pulvinar. Praesent justo urna, "
-      "convallis eu fermentum vitae, lobortis id quam. Aliquam non dolor "
-      "finibus, laoreet mauris consectetur, maximus neque. Aliquam sit amet "
-      "commodo enim. Sed tempor pulvinar felis, sit amet faucibus neque "
-      "fermentum sed. Nulla et euismod nunc, at bibendum odio. Nam neque "
-      "justo, sagittis ut nulla hendrerit, semper varius nisi. Donec nec "
-      "mattis neque. Cras ultrices ipsum sed lectus sollicitudin pellentesque. "
-      "Duis maximus ligula magna. Sed aliquet dictum mi.\n"
-      "\n"
-      "Vestibulum sit amet dolor eu turpis venenatis vulputate. Vestibulum sed "
-      "aliquet libero. Fusce vestibulum nisi turpis, ac molestie est sagittis "
-      "non. Nunc eu enim odio. Maecenas id felis neque. Cras luctus metus vel "
-      "orci tempor tempor. Sed nec erat lacus. Sed ultricies varius elit ac "
-      "blandit. Vestibulum ut rutrum lorem. Fusce varius, dolor at malesuada "
-      "pretium, nulla nisi tempus dolor, in vestibulum sem ante efficitur "
-      "erat. Phasellus sed velit id justo egestas porta ut et massa.\n"
-      "\n"
-      "Aenean purus felis, semper a dapibus id, posuere ac est. Morbi in "
-      "pulvinar ligula. Sed ullamcorper sapien nec nulla sollicitudin "
-      "sollicitudin. In viverra enim quis turpis facilisis, non mollis metus "
-      "mollis. Donec sed eleifend mi. Duis ultricies odio ex, ultrices mattis "
-      "ipsum tempor et. Morbi rhoncus nulla sit amet arcu pulvinar bibendum. "
-      "Integer sed tellus faucibus, feugiat magna ac, luctus arcu. Phasellus "
-      "ultrices finibus nisi, in rutrum ante eleifend ac. Duis mi sapien, "
-      "rhoncus ac enim id, molestie imperdiet sem. Ut id tortor in ligula "
-      "viverra dignissim. Donec purus risus, blandit sed est nec, ullamcorper "
-      "vestibulum ipsum. Etiam pharetra feugiat facilisis.\n";
+    const char msg[] = "Hello, DoorsOS! Unix Syscall Test Edition!\n";
+    sys_print_write(1, msg, sizeof(msg) - 1);
 
-    print_uname();
-    sys_print(msg, sizeof(msg) - 1);
-    print_str(msgfake);
     main_program(argc, argv);
 
-    print_str("Environment variables:\n");
+    print_str("\nEnvironment:\n");
     if (!envp || !envp[0]) {
         print_str("  <none>\n");
     } else {
         for (int i = 0; envp[i]; i++) {
-            print_str("envp[");
+            print_str("  envp[");
             print_int(i);
             print_str("] = ");
             print_str(envp[i]);
             print_str("\n");
         }
     }
+
     sys_fuck_you();
+    print_str("\nDone.\n");
 }

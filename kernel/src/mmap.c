@@ -39,7 +39,7 @@ typedef struct {
 
 static mmap_region_t mmap_regions[MAX_MMAP_REGIONS];
 static bool mmap_initialized = false;
-static uint64_t mmap_virt_next = 0x0000000080000000;  // Global mmap virtual address allocator
+static uint64_t mmap_virt_next = 0xFFFF800091000000;  // IT WAS THE FUCKING FRAMEBUFFER POINTER
 
 // Convert protection flags to page table flags
 static uint8_t prot_to_page_flags(int prot) {
@@ -597,7 +597,7 @@ void test_mmap_basic(void) {
         serial_io_printf("  Allocated anonymous mapping at %p\n", anon_map);
 
         // Write some data
-        uint64_t* ptr = (uint64_t*)anon_map;
+        volatile uint64_t* ptr = (uint64_t*)anon_map;
         ptr[0] = 0xDEADBEEFCAFEBABEULL;
         ptr[1] = 0x1234567890ABCDEFULL;
 

@@ -412,6 +412,7 @@ void kmain(void) {
      printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
     printf("Type 'help' for commands\n\n");
 
+     test_mmap_basic();
     /* ========== ELF Loader Test ========== */
     printf("\n=== ELF Loader Test ===\n");
 
@@ -522,7 +523,7 @@ void kmain(void) {
     test_brk();
 
     
- test_mmap_basic();
+
 
     cmd_cp("/govdb.csv","/nigga.csv");
   
