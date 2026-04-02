@@ -83,4 +83,5 @@ int32_t fd_size(int fd);
 // Check if fd is valid
 bool fd_is_valid(int fd);
 
+int fd_dup2(int oldfd, int newfd);
 #endif

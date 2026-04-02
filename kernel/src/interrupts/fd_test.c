@@ -2,7 +2,7 @@
 #include "../gfx/serial_io.h"
 #include "../mem/heap.h"
 #include "../libs/string.h"
-
+#include "../shell/shell_enhanced.h"
 #define serial_io_serial_io_printf serial_io_printf
 void fd_test_basic(void) {
     serial_io_printf("\n=== FD Basic Test ===\n");
@@ -263,6 +263,7 @@ void fd_test_large_file(void) {
     fd_close(fd);
     free(test_data);
     
+   // cmd_rm("/largefile.bin");
     serial_io_printf("=== Large File Test PASSED ===\n\n");
 }
 
@@ -365,16 +366,16 @@ void fd_test_dup(void) {
     serial_io_printf("SUCCESS: Read via dup fd: '%s'\n", buffer);
 
     // Write more via fd2
-const char* msg2 = "!";
-fd_seek(fd2, 0, SEEK_END);
-int written2 = fd_write(fd2, msg2, strlen(msg2));
-if (written2 != (int)strlen(msg2)) {
-    serial_io_printf("FAILED: fd_write via dup\n");
-    fd_close(fd);
-    fd_close(fd2);
-    return;
-}
-serial_io_printf("SUCCESS: Wrote via dup fd\n");
+    const char* msg2 = "!";
+    fd_seek(fd2, 0, SEEK_END);
+    int written2 = fd_write(fd2, msg2, strlen(msg2));
+    if (written2 != (int)strlen(msg2)) {
+        serial_io_printf("FAILED: fd_write via dup\n");
+        fd_close(fd);
+        fd_close(fd2);
+        return;
+    }
+    serial_io_printf("SUCCESS: Wrote via dup fd\n");
 
     // Close original, verify dup still works
     fd_close(fd);
@@ -394,19 +395,213 @@ serial_io_printf("SUCCESS: Wrote via dup fd\n");
     serial_io_printf("=== Dup Test PASSED ===\n\n");
 }
 
+void fd_test_dup2(void) {
+    serial_io_printf("\n=== FD Dup2 Test ===\n");
+
+    // Test 1: Basic dup2 functionality
+    serial_io_printf("Test 1: Basic dup2 to specific fd\n");
+    int fd1 = fd_open("/dup2test1.txt", O_CREAT | O_RDWR);
+    if (fd1 < 0) {
+        serial_io_printf("FAILED: fd_open fd1\n");
+        return;
+    }
+
+    const char* msg1 = "original file";
+    fd_write(fd1, msg1, strlen(msg1));
+    serial_io_printf("SUCCESS: Created fd1=%d with data\n", fd1);
+
+    // Duplicate to a specific fd number (let's use fd 10)
+    int target_fd = 10;
+    int result = fd_dup2(fd1, target_fd);
+    if (result != target_fd) {
+        serial_io_printf("FAILED: fd_dup2 returned %d, expected %d\n", result, target_fd);
+        fd_close(fd1);
+        return;
+    }
+    serial_io_printf("SUCCESS: Duplicated fd1 to fd %d\n", target_fd);
+
+    // Verify the duplicated fd works
+    fd_seek(target_fd, 0, SEEK_SET);
+    char buffer[128];
+    memset(buffer, 0, 128);
+    int read_bytes = fd_read(target_fd, buffer, strlen(msg1));
+    if (read_bytes != (int)strlen(msg1) || strcmp(buffer, msg1) != 0) {
+        serial_io_printf("FAILED: Reading from dup2'd fd\n");
+        fd_close(fd1);
+        fd_close(target_fd);
+        return;
+    }
+    serial_io_printf("SUCCESS: Read from dup2'd fd: '%s'\n", buffer);
+
+    fd_close(fd1);
+    fd_close(target_fd);
+
+    // Test 2: dup2 where newfd == oldfd (should be no-op)
+    serial_io_printf("\nTest 2: dup2 with same fd (no-op test)\n");
+    int fd2 = fd_open("/dup2test2.txt", O_CREAT | O_RDWR);
+    if (fd2 < 0) {
+        serial_io_printf("FAILED: fd_open fd2\n");
+        return;
+    }
+
+    const char* msg2 = "same fd test";
+    fd_write(fd2, msg2, strlen(msg2));
+    
+    result = fd_dup2(fd2, fd2);
+    if (result != fd2) {
+        serial_io_printf("FAILED: fd_dup2(fd, fd) returned %d, expected %d\n", result, fd2);
+        fd_close(fd2);
+        return;
+    }
+    serial_io_printf("SUCCESS: dup2(fd, fd) returned same fd\n");
+
+    // Verify data is still accessible
+    fd_seek(fd2, 0, SEEK_SET);
+    memset(buffer, 0, 128);
+    read_bytes = fd_read(fd2, buffer, strlen(msg2));
+    if (read_bytes != (int)strlen(msg2) || strcmp(buffer, msg2) != 0) {
+        serial_io_printf("FAILED: Data corrupted after dup2(fd, fd)\n");
+        fd_close(fd2);
+        return;
+    }
+    serial_io_printf("SUCCESS: Data intact after dup2(fd, fd)\n");
+
+    fd_close(fd2);
+
+    // Test 3: dup2 overwrites existing fd
+    serial_io_printf("\nTest 3: dup2 overwrites existing open fd\n");
+    int fd3 = fd_open("/dup2test3.txt", O_CREAT | O_RDWR);
+    int fd4 = fd_open("/dup2test4.txt", O_CREAT | O_RDWR);
+    if (fd3 < 0 || fd4 < 0) {
+        serial_io_printf("FAILED: fd_open for overwrite test\n");
+        if (fd3 >= 0) fd_close(fd3);
+        if (fd4 >= 0) fd_close(fd4);
+        return;
+    }
+
+    const char* msg3 = "file 3 data";
+    const char* msg4 = "file 4 data";
+    fd_write(fd3, msg3, strlen(msg3));
+    fd_write(fd4, msg4, strlen(msg4));
+    serial_io_printf("SUCCESS: Created fd3=%d and fd4=%d with different data\n", fd3, fd4);
+
+    // dup2 fd3 to fd4 (should close fd4 and replace it)
+    result = fd_dup2(fd3, fd4);
+    if (result != fd4) {
+        serial_io_printf("FAILED: fd_dup2 for overwrite returned %d, expected %d\n", result, fd4);
+        fd_close(fd3);
+        fd_close(fd4);
+        return;
+    }
+    serial_io_printf("SUCCESS: Overwrote fd4 with fd3\n");
+
+    // Now fd4 should have fd3's data, not its original data
+    fd_seek(fd4, 0, SEEK_SET);
+    memset(buffer, 0, 128);
+    read_bytes = fd_read(fd4, buffer, strlen(msg3));
+    if (read_bytes != (int)strlen(msg3) || strcmp(buffer, msg3) != 0) {
+        serial_io_printf("FAILED: fd4 doesn't have fd3's data after dup2\n");
+        serial_io_printf("  Expected: '%s'\n", msg3);
+        serial_io_printf("  Got: '%s'\n", buffer);
+        fd_close(fd3);
+        fd_close(fd4);
+        return;
+    }
+    serial_io_printf("SUCCESS: fd4 now contains fd3's data: '%s'\n", buffer);
+
+    fd_close(fd3);
+    fd_close(fd4);
+
+    // Test 4: dup2 with pipes
+    serial_io_printf("\nTest 4: dup2 with pipes\n");
+    int pipefd[2];
+    if (fd_pipe(pipefd) < 0) {
+        serial_io_printf("FAILED: fd_pipe for dup2 test\n");
+        return;
+    }
+
+    const char* pipe_msg = "pipe dup2 test";
+    fd_write(pipefd[1], pipe_msg, strlen(pipe_msg));
+
+    // Duplicate read end to a specific fd
+    int pipe_dup_fd = 15;
+    result = fd_dup2(pipefd[0], pipe_dup_fd);
+    if (result != pipe_dup_fd) {
+        serial_io_printf("FAILED: fd_dup2 for pipe\n");
+        fd_close(pipefd[0]);
+        fd_close(pipefd[1]);
+        return;
+    }
+    serial_io_printf("SUCCESS: Duplicated pipe read end to fd %d\n", pipe_dup_fd);
+
+    // Read from duplicated pipe fd
+    memset(buffer, 0, 128);
+    read_bytes = fd_read(pipe_dup_fd, buffer, strlen(pipe_msg));
+    if (read_bytes != (int)strlen(pipe_msg) || strcmp(buffer, pipe_msg) != 0) {
+        serial_io_printf("FAILED: Reading from dup2'd pipe fd\n");
+        fd_close(pipefd[0]);
+        fd_close(pipefd[1]);
+        fd_close(pipe_dup_fd);
+        return;
+    }
+    serial_io_printf("SUCCESS: Read from dup2'd pipe fd: '%s'\n", buffer);
+
+    fd_close(pipefd[0]);
+    fd_close(pipefd[1]);
+    fd_close(pipe_dup_fd);
+
+    // Test 5: Invalid fd tests
+    serial_io_printf("\nTest 5: Error handling tests\n");
+    
+    // dup2 with invalid oldfd
+    result = fd_dup2(999, 5);
+    if (result >= 0) {
+        serial_io_printf("FAILED: fd_dup2 should fail with invalid oldfd\n");
+        return;
+    }
+    serial_io_printf("SUCCESS: fd_dup2 correctly rejected invalid oldfd\n");
+
+    // dup2 with invalid newfd (negative)
+    int fd5 = fd_open("/dup2test5.txt", O_CREAT | O_RDWR);
+    if (fd5 < 0) {
+        serial_io_printf("FAILED: fd_open for error test\n");
+        return;
+    }
+    result = fd_dup2(fd5, -1);
+    if (result >= 0) {
+        serial_io_printf("FAILED: fd_dup2 should fail with negative newfd\n");
+        fd_close(fd5);
+        return;
+    }
+    serial_io_printf("SUCCESS: fd_dup2 correctly rejected negative newfd\n");
+
+    // dup2 with newfd too large
+    result = fd_dup2(fd5, 9999);
+    if (result >= 0) {
+        serial_io_printf("FAILED: fd_dup2 should fail with too-large newfd\n");
+        fd_close(fd5);
+        return;
+    }
+    serial_io_printf("SUCCESS: fd_dup2 correctly rejected too-large newfd\n");
+
+    fd_close(fd5);
+
+    serial_io_printf("=== Dup2 Test PASSED ===\n\n");
+}
+
 void fd_test_complete(void) {
     serial_io_printf("\n");
     serial_io_printf("\n");
     serial_io_printf("    FILE DESCRIPTOR SYSTEM TEST SUITE        \n");
     serial_io_printf("\n");
     
-    fd_init();
     
     fd_test_basic();
     fd_test_pipe();
     fd_test_large_file();
-    
     fd_test_dup();
+    fd_test_dup2();
+    
     serial_io_printf("\n");
     serial_io_printf("\n");
     serial_io_printf("    ALL FD TESTS COMPLETED                   \n");

@@ -76,7 +76,6 @@ run-idk-hdd: $(IMAGE_NAME).hdd disk.img
 run-hdd-ahci: $(IMAGE_NAME).hdd
 	clear
 	qemu-system-x86_64.exe \
-		-cpu qemu64,+sse,+sse2 \
 		-drive if=pflash,format=raw,readonly,file=ovmf/ovmf-code-x86_64.fd \
 		-drive if=pflash,format=raw,file=ovmf/ovmf-vars-x86_64.fd \
 		-drive id=disk,file=$(IMAGE_NAME).hdd,format=raw,if=none \

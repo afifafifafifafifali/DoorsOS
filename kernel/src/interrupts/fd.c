@@ -48,6 +48,7 @@ int fd_open(const char* path, int flags) {
         serial_io_printf("fd_open: no free descriptors\n");
         return -1;
     }
+    serial_io_printf("#1 ");
     
     file_descriptor_t* desc = &fd_table[fd];
     
@@ -63,6 +64,7 @@ int fd_open(const char* path, int flags) {
     uint32_t file_size = 0;
     bool file_exists = false;
     
+    serial_io_printf("#2");
     // Allocate a temporary buffer to check if file exists
     uint8_t* temp_buf = malloc(16 * 1024 * 1024); // 16MB max file size
     if (!temp_buf) {
@@ -71,27 +73,32 @@ int fd_open(const char* path, int flags) {
         return -1;
     }
     
+    serial_io_printf("#3 ");
     if (fat32_read_file(path, temp_buf, &file_size)) {
         file_exists = true;
         serial_io_printf("fd_open: file exists, size=%u\n", file_size);
     }
     
     // Handle file opening modes
+    serial_io_printf("#4 ");
     if (file_exists) {
         if (flags & O_TRUNC) {
             // Truncate file
             file_size = 0;
             desc->file_size = 0;
+            serial_io_printf("#5 ");
             desc->file_buffer = malloc(4096); // Start with 4KB
             if (!desc->file_buffer) {
                 free(temp_buf);
                 desc->type = FD_TYPE_NONE;
                 return -1;
             }
+            serial_io_printf("#6 ");
             memset(desc->file_buffer, 0, 4096);
             desc->modified = true;
         } else {
             // Keep existing content
+            serial_io_printf("#7 ");
             desc->file_size = file_size;
             desc->file_buffer = malloc(file_size > 0 ? file_size : 1);
             if (!desc->file_buffer) {
@@ -99,34 +106,41 @@ int fd_open(const char* path, int flags) {
                 desc->type = FD_TYPE_NONE;
                 return -1;
             }
+            serial_io_printf("#8 ");
             memcpy(desc->file_buffer, temp_buf, file_size);
             
             if (flags & O_APPEND) {
                 desc->position = file_size;
             }
+            serial_io_printf("#9 ");
         }
     } else {
         // File doesn't exist
         if (flags & O_CREAT) {
+            serial_io_printf("#9 ");
             // Create new file
             desc->file_size = 0;
+            serial_io_printf("#10 ");
             desc->file_buffer = malloc(4096); // Start with 4KB
             if (!desc->file_buffer) {
                 free(temp_buf);
                 desc->type = FD_TYPE_NONE;
                 return -1;
             }
+            serial_io_printf("#11 ");
             memset(desc->file_buffer, 0, 4096);
             desc->modified = true;
         } else {
             // File doesn't exist and O_CREAT not set
             free(temp_buf);
             desc->type = FD_TYPE_NONE;
+            serial_io_printf("#12 ");
             serial_io_printf("fd_open: file not found and O_CREAT not set\n");
             return -1;
         }
     }
     
+    serial_io_printf("#13 ");
     free(temp_buf);
     serial_io_printf("fd_open: opened %s as fd=%d\n", path, fd);
     return fd;
@@ -135,29 +149,23 @@ int fd_open(const char* path, int flags) {
 // Flush modified file to disk
 int fd_flush(int fd) {
     if (!fd_is_valid(fd)) return -1;
-    
+
     file_descriptor_t* desc = &fd_table[fd];
-    
+
     if (desc->type != FD_TYPE_FILE) return -1;
     if (!desc->modified) return 0; // Nothing to flush
-    
+
     serial_io_printf("fd_flush: flushing fd=%d, size=%u\n", fd, desc->file_size);
-    
+
     // Write file back to FAT32
     if (desc->file_size > 0) {
         if (!fat32_write_file(desc->path, desc->file_buffer, desc->file_size)) {
             serial_io_printf("fd_flush: write failed\n");
             return -1;
         }
-    } else {
-        // Empty file - still create it
-        uint8_t dummy = 0;
-        if (!fat32_write_file(desc->path, &dummy, 0)) {
-            serial_io_printf("fd_flush: write failed (empty file)\n");
-            return -1;
-        }
     }
-    
+    // Empty files: skip write (FAT32 layer doesn't support 0-byte writes)
+
     desc->modified = false;
     serial_io_printf("fd_flush: success\n");
     return 0;
@@ -433,13 +441,64 @@ int fd_dup(int oldfd) {
     new_desc->pipe = old_desc->pipe;
     memcpy(new_desc->path, old_desc->path, 256);
     
-    // For files, share the same buffer (both descriptors point to same data)
-    // This matches Unix behavior where dup shares the file table entry
+    // For files, allocate a separate buffer and copy data
+    // This avoids double-free when both fds are closed
     if (old_desc->type == FD_TYPE_FILE) {
-        new_desc->file_buffer = old_desc->file_buffer;
+        if (old_desc->file_buffer && old_desc->file_size > 0) {
+            new_desc->file_buffer = malloc(old_desc->file_size);
+            if (new_desc->file_buffer) {
+                memcpy(new_desc->file_buffer, old_desc->file_buffer, old_desc->file_size);
+            }
+        } else {
+            new_desc->file_buffer = NULL;
+        }
+    }
+
+    serial_io_printf("fd_dup: duplicated fd=%d to fd=%d\n", oldfd, newfd);
+
+    return newfd;
+}
+
+int fd_dup2(int oldfd, int newfd) {
+    if (!fd_is_valid(oldfd)) return -1;
+    if (newfd < 0 || newfd >= MAX_FDS) return -1;
+    
+    // If oldfd == newfd, just return newfd (no-op, but validate oldfd)
+    if (oldfd == newfd) {
+        return newfd;
     }
     
-    serial_io_printf("fd_dup: duplicated fd=%d to fd=%d\n", oldfd, newfd);
+    // Close newfd if it's already open
+    if (fd_is_valid(newfd)) {
+        fd_close(newfd);
+    }
     
+    file_descriptor_t* old_desc = &fd_table[oldfd];
+    file_descriptor_t* new_desc = &fd_table[newfd];
+    
+    // Copy descriptor
+    new_desc->type = old_desc->type;
+    new_desc->flags = old_desc->flags;
+    new_desc->position = old_desc->position;
+    new_desc->file_size = old_desc->file_size;
+    new_desc->modified = old_desc->modified;
+    new_desc->pipe = old_desc->pipe;
+    memcpy(new_desc->path, old_desc->path, 256);
+
+    // For files, allocate a separate buffer and copy data
+    // This avoids double-free when both fds are closed
+    if (old_desc->type == FD_TYPE_FILE) {
+        if (old_desc->file_buffer && old_desc->file_size > 0) {
+            new_desc->file_buffer = malloc(old_desc->file_size);
+            if (new_desc->file_buffer) {
+                memcpy(new_desc->file_buffer, old_desc->file_buffer, old_desc->file_size);
+            }
+        } else {
+            new_desc->file_buffer = NULL;
+        }
+    }
+
+    serial_io_printf("fd_dup2: duplicated fd=%d to fd=%d\n", oldfd, newfd);
+
     return newfd;
 }

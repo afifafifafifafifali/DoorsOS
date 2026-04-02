@@ -334,7 +334,7 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             int newfd = (int)arg2;
             
             // @todo
-            ret = fd_dup(oldfd);
+            ret = fd_dup2(oldfd,newfd);
             break;
         }
         

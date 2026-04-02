@@ -356,7 +356,7 @@ static void cmd_mkdir(const char* dirname) {
     }
 }
 
-static void cmd_rm(const char* filename) {
+void cmd_rm(const char* filename) {
     if (!filename) {
         printf("Usage: rm <file>\n");
         return;
@@ -395,6 +395,7 @@ void cmd_cp(const char* src, const char* dst) {
     }
 
     printf("Copying %s (%u bytes) to %s...\n", src, size, dst);
+    serial_io_printf("SHELL COPY Copying %s (%u bytes) to %s...\n", src, size, dst);
 
     // Use 1MB chunk buffer
     const uint32_t CHUNK_SIZE = 1122304;
@@ -408,6 +409,7 @@ void cmd_cp(const char* src, const char* dst) {
     uint8_t* file_buf = k_malloc(size);
     if (!file_buf) {
         printf("Out of memory for file (%u bytes)\n", size);
+        
         k_free(chunk_buf);
         return;
     }
@@ -421,6 +423,7 @@ void cmd_cp(const char* src, const char* dst) {
 
     if (!fat32_write_file(dst, file_buf, size)) {
         printf("Failed to write: %s\n", dst);
+        serial_io_printf("[shell copy]Failed to write: %s\n", dst);
         k_free(file_buf);
         k_free(chunk_buf);
         return;

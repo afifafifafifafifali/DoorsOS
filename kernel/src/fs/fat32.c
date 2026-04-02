@@ -708,26 +708,71 @@ static bool fat32_write_file_in_dir(uint32_t dir_cluster, const char* filename, 
 
     int entries_needed = lfn_entries + 1;
 
-    // Find consecutive free entries in directory
-    uint32_t dir_lba = cluster_to_lba(dir_cluster);
-    storage_read_sectors(dir_lba, 1, sector_buf);
-
+    // Find consecutive free entries in directory (scan all sectors in cluster chain)
     int free_start = -1;
     int free_count = 0;
+    uint32_t write_cluster = 0;  // Cluster where we found space
+    uint32_t search_cluster = dir_cluster;
 
-    for (int i = 0; i < 16; i++) {
-        uint8_t* entry = &sector_buf[i * 32];
-        if (entry[0] == 0 || entry[0] == 0xE5) {
-            if (free_start < 0) free_start = i;
-            free_count++;
-            if (free_count >= entries_needed) break;
-        } else {
+    // Scan all clusters in directory chain
+    while (search_cluster && search_cluster < 0x0FFFFFF8) {
+        uint32_t cluster_lba = cluster_to_lba(search_cluster);
+        for (uint32_t sec = 0; sec < fs.sectors_per_cluster; sec++) {
+            if (!storage_read_sectors(cluster_lba + sec, 1, sector_buf)) break;
+
+            for (int i = 0; i < 16; i++) {
+                uint8_t* entry = &sector_buf[i * 32];
+                if (entry[0] == 0 || entry[0] == 0xE5) {
+                    if (free_start < 0) {
+                        free_start = i;
+                        write_cluster = search_cluster;
+                    }
+                    free_count++;
+                    if (free_count >= entries_needed) goto found_space;
+                } else {
+                    free_start = -1;
+                    free_count = 0;
+                }
+            }
+            // Reset at end of sector - need consecutive entries within same sector
             free_start = -1;
             free_count = 0;
         }
+        // Move to next cluster in chain
+        search_cluster = get_fat_entry(search_cluster);
     }
 
-    if (free_count < entries_needed) return false;
+    // No space found - expand directory by adding a new cluster
+    uint32_t new_cluster = allocate_cluster();
+    if (!new_cluster) {
+        serial_io_printf("FAT32 write: failed to allocate directory cluster\n");
+        return false;
+    }
+
+    // Find last cluster in directory chain and link new cluster
+    uint32_t last_cluster = dir_cluster;
+    while (last_cluster && last_cluster < 0x0FFFFFF8) {
+        uint32_t next = get_fat_entry(last_cluster);
+        if (next >= 0x0FFFFFF8) break;
+        last_cluster = next;
+    }
+    set_fat_entry(last_cluster, new_cluster);
+    set_fat_entry(new_cluster, 0x0FFFFFFF);
+
+    // Zero out new cluster
+    uint32_t new_cluster_lba = cluster_to_lba(new_cluster);
+    memset(sector_buf, 0, 512);
+    for (uint32_t sec = 0; sec < fs.sectors_per_cluster; sec++) {
+        storage_write_sectors(new_cluster_lba + sec, 1, sector_buf);
+    }
+
+    // Use first entries in new cluster
+    free_start = 0;
+    write_cluster = new_cluster;
+
+found_space:
+    // Read the sector (sector 0) of the cluster where we found space
+    storage_read_sectors(cluster_to_lba(write_cluster), 1, sector_buf);
 
     // Write LFN entries (in reverse order)
     for (int seq = lfn_entries; seq >= 1; seq--) {
@@ -744,7 +789,7 @@ static bool fat32_write_file_in_dir(uint32_t dir_cluster, const char* filename, 
     *(uint16_t*)&entry[20] = first_cluster >> 16;
     *(uint32_t*)&entry[28] = size;
 
-    storage_write_sectors(dir_lba, 1, sector_buf);
+    storage_write_sectors(cluster_to_lba(write_cluster), 1, sector_buf);
 
     // Flush FAT cache once after all allocations
     flush_fat_cache();

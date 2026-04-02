@@ -1,7 +1,6 @@
 # Contributions
 
 > First of all, thank you for your interest in contributing to this project!
-> Your help — whether it's code, ideas, documentation, or just testing — is invaluable and appreciated.
 
 ## How to Contribute
 
@@ -16,7 +15,7 @@
    - Submit a pull request for review
 3. **Code Style and Quality:**
 
-   The reason DoorsOS exists is ****Simplicity & Readable Codebase & **Lightweight**** Please keep code clean and consistent.Comment your code to explain complex logic.Write tests if applicable. Your code will be tested in 10 different envoirments. Please DO NOT EDIT THE ASSEMBLY CODE, CHANGE THE LIMINE VERSION.
+   The reason DoorsOS exists is ****Simplicity & Readable Codebase & **Lightweight**** Please keep code clean and consistent.Comment your code to explain complex logic.Write tests if applicable. Your code will be tested in 10 different envoirments. Please DO NOT EDIT THE ASSEMBLY CODE, DO NOTCHANGE THE LIMINE VERSION.
 4. **Documentation:**
    Improving docs or examples is always welcome.
 5. Editor
@@ -35,4 +34,3 @@ Together, we can build something great!
 ---
 
 *Happy coding & Good Luck Soldier!*
-— Afif Ali Saadman , Leader and Founder of the Doors Project

@@ -80,13 +80,12 @@ struct timespec {
 
 
 // Open flags
-#define O_RDONLY            0x000
-#define O_WRONLY            0x001
-#define O_RDWR              0x002
-#define O_CREAT             0x040
-#define O_TRUNC             0x200
-#define O_APPEND            0x400
-#define O_EXCL              0x800
+#define O_RDONLY    0x0001
+#define O_WRONLY    0x0002
+#define O_RDWR      0x0003
+#define O_CREAT     0x0100
+#define O_TRUNC     0x0200
+#define O_APPEND    0x0400
 
 // seek 
 #define SEEK_SET            0

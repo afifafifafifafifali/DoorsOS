@@ -60,7 +60,9 @@ void* allocator_malloc(size_t size) {
     FreeBlock** current = &free_list;
 
     while (*current) {
+        
         if ((*current)->size >= size) {
+           // serial_io_printf("Found");
             FreeBlock* allocated = *current;
 
             if (allocated->size >= size + sizeof(FreeBlock) + 8) {

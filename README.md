@@ -1,3 +1,18 @@
+> [!CAUTION]
+> **THIS OPERATING SYSTEM IS NOT FOR REAL-LIFE USE. IT IS PURELY FOR EDUCATIONAL PURPOSES ONLY!!!!**
+
+# Table of Contents
+
+- [What is DoorsOS 🚪?](#what-is-doorsos-)
+- [Preview of the OS](#preview-of-the-os)
+- [Why make your own OS in [insert year]?](#why-make-your-own-os-in-insert-year)
+- [Roadmap & Todo's](#roadmap--todos)
+- [Resources](#resources)
+- [Contributions](#contributions)
+- [Compilation of the project](#compilation-of-the-project)
+
+---
+
 # What is DoorsOS 🚪?
 
 DoorsOS is an ** UEFI ONLY**  x86_64 POSIX-Compliant Limine-based operating system in C. An active effort of making a full OS, with a simple and readable codebase.  [![DOI](https://zenodo.org/badge/1015985619.svg)](https://doi.org/10.5281/zenodo.18637986)
@@ -6,13 +21,13 @@ DoorsOS is an ** UEFI ONLY**  x86_64 POSIX-Compliant Limine-based operating syst
 
 ![1751969142420](images/Readme/1751969142420.png)
 
-![1752397140584](https://github.com/afifafifafifafifali/DoorsOS/blob/main/images/Readme/Screenshot%20(15).png)
+![1752397140584](images/Readme/67.png)
 
 ## Why make your own OS in [insert year]?
 
 > because I can
 
-Having a good time is my drive for this project + I learn a lot of cool low level stuff alongside that! And, also, I have the ambition to defeat Windows(this os doesn't give you freedom to be honest) and Linux(This is too cocky, like, yea, less manual, when you break the system via an unfogivable error)
+Having a good time is my drive for this project + I learn a lot of cool low level stuff alongside that! And, also, I have the ambition to defeat Windows(this os doesn't give you freedom to be honest).
 
 ## Roadmap & Todo's
 
@@ -37,7 +52,10 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 * [X]  Shutdowns
 * [X]  Add Multitasking
 * [X]  Add Syscalls (int 0x80)
-* [ ]  Add Linux headers(Optional)
+* [ ]  Add Libc
+* [ ]  Use libc
+* [ ]  Test framebuffer(via syscall)
+* [ ]  Add uefi check
 * [X]  Add Mouse
 * [ ]  Add Windows(not MS, the GUI )
 * [ ]  Add Xorg or NanoX
@@ -55,14 +73,15 @@ Having a good time is my drive for this project + I learn a lot of cool low leve
 
 See docs/contributions.md
 
-## Building the project
+## Compilation of the project
 
-Limine
+**This is a hobby OS. It is not intended for daily use.**
 
-```
-make limine/limine
-```
+To compile this,first:
 
-Make CD(without UEFI): ``` make clean && make run```
-
-For AHCI(UEFI): ```make clean && make run-hdd-ahci```
+1. Make sure you have `` mtools, dos2unix,make,build-essentials, cc,qemu-system-x86_64``
+2. Edit the `` GNUmakefile`` (temporarily) , replace ``qemu-system-x86_64.exe`` or,if inside wsl2, download the latest version. You dont need  to have kvm or Windows Hyper-V ( QEMU version must be >= 10)
+3. Run the command:
+   ```bash
+   make run-hdd-ahci
+   ```
