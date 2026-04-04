@@ -93,6 +93,7 @@
 #define R_X86_64_16        12
 #define R_X86_64_PC16      13
 #define R_X86_64_8         14
+#define R_X86_64_RELATIVE  8
 #define R_X86_64_PC8       15
 #define R_X86_64_PLT32     4
 #define R_X86_64_GOTPCREL  9

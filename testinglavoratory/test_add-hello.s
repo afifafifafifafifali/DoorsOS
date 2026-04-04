@@ -23,7 +23,7 @@ syscall:
 	movq	-40(%rbp), %rsi
 	movq	-48(%rbp), %rdx
 #APP
-# 39 "hello.c" 1
+# 46 "hello.c" 1
 	int $0x80
 # 0 "" 2
 #NO_APP
@@ -270,20 +270,19 @@ sys_mmap:
 	movl	%ecx, -24(%rbp)
 	movl	%r8d, -28(%rbp)
 	movq	%r9, -40(%rbp)
-	movq	-40(%rbp), %rsi
 	movl	-28(%rbp), %eax
-	movslq	%eax, %r8
-	movl	-24(%rbp), %eax
 	movslq	%eax, %rdi
+	movl	-24(%rbp), %eax
+	movslq	%eax, %rsi
 	movl	-20(%rbp), %eax
 	movslq	%eax, %rcx
 	movq	-8(%rbp), %rax
 	movq	-16(%rbp), %rdx
-	pushq	%rsi
-	movq	%r8, %r9
-	movq	%rdi, %r8
+	pushq	-40(%rbp)
+	movq	%rdi, %r9
+	movq	%rsi, %r8
 	movq	%rax, %rsi
-	movl	$214, %edi
+	movl	$9, %edi
 	call	syscall6
 	addq	$8, %rsp
 	leave
@@ -307,7 +306,7 @@ sys_munmap:
 	movq	-8(%rbp), %rax
 	movq	-16(%rbp), %rdx
 	movq	%rax, %rsi
-	movl	$215, %edi
+	movl	$11, %edi
 	call	syscall2
 	leave
 	.cfi_def_cfa 7, 8
@@ -315,9 +314,35 @@ sys_munmap:
 	.cfi_endproc
 .LFE11:
 	.size	sys_munmap, .-sys_munmap
+	.type	sys_mprotect, @function
+sys_mprotect:
+.LFB12:
+	.cfi_startproc
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$24, %rsp
+	movq	%rdi, -8(%rbp)
+	movq	%rsi, -16(%rbp)
+	movl	%edx, -20(%rbp)
+	movl	-20(%rbp), %eax
+	movslq	%eax, %rcx
+	movq	-8(%rbp), %rax
+	movq	-16(%rbp), %rdx
+	movq	%rax, %rsi
+	movl	$10, %edi
+	call	syscall3
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE12:
+	.size	sys_mprotect, .-sys_mprotect
 	.type	print_str, @function
 print_str:
-.LFB12:
+.LFB14:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -329,14 +354,14 @@ print_str:
 	movq	%rdi, -24(%rbp)
 	movq	-24(%rbp), %rax
 	movq	%rax, -8(%rbp)
-	jmp	.L24
-.L25:
+	jmp	.L26
+.L27:
 	addq	$1, -8(%rbp)
-.L24:
+.L26:
 	movq	-8(%rbp), %rax
 	movzbl	(%rax), %eax
 	testb	%al, %al
-	jne	.L25
+	jne	.L27
 	movq	-8(%rbp), %rax
 	subq	-24(%rbp), %rax
 	movq	%rax, %rdx
@@ -349,7 +374,7 @@ print_str:
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE12:
+.LFE14:
 	.size	print_str, .-print_str
 	.section	.rodata
 .LC0:
@@ -357,7 +382,7 @@ print_str:
 	.text
 	.type	print_int, @function
 print_int:
-.LFB13:
+.LFB15:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -368,22 +393,22 @@ print_int:
 	subq	$64, %rsp
 	movl	%edi, -52(%rbp)
 	cmpl	$0, -52(%rbp)
-	jne	.L27
+	jne	.L29
 	movl	$1, %edx
 	leaq	.LC0(%rip), %rax
 	movq	%rax, %rsi
 	movl	$1, %edi
 	call	sys_print_write
-	jmp	.L26
-.L27:
+	jmp	.L28
+.L29:
 	movl	$0, -4(%rbp)
 	movl	$0, -8(%rbp)
 	cmpl	$0, -52(%rbp)
-	jns	.L30
+	jns	.L32
 	movl	$1, -8(%rbp)
 	negl	-52(%rbp)
-	jmp	.L30
-.L31:
+	jmp	.L32
+.L33:
 	movl	-52(%rbp), %edx
 	movslq	%edx, %rax
 	imulq	$1717986919, %rax, %rax
@@ -417,20 +442,20 @@ print_int:
 	movl	%ecx, %eax
 	subl	%edx, %eax
 	movl	%eax, -52(%rbp)
-.L30:
+.L32:
 	cmpl	$0, -52(%rbp)
-	jg	.L31
+	jg	.L33
 	cmpl	$0, -8(%rbp)
-	je	.L32
+	je	.L34
 	movl	-4(%rbp), %eax
 	leal	1(%rax), %edx
 	movl	%edx, -4(%rbp)
 	cltq
 	movb	$45, -48(%rbp,%rax)
-.L32:
-	movl	$0, -12(%rbp)
-	jmp	.L33
 .L34:
+	movl	$0, -12(%rbp)
+	jmp	.L35
+.L36:
 	movl	-12(%rbp), %eax
 	cltq
 	movzbl	-48(%rbp,%rax), %eax
@@ -450,26 +475,26 @@ print_int:
 	movzbl	-13(%rbp), %edx
 	movb	%dl, -48(%rbp,%rax)
 	addl	$1, -12(%rbp)
-.L33:
+.L35:
 	movl	-4(%rbp), %eax
 	movl	%eax, %edx
 	shrl	$31, %edx
 	addl	%edx, %eax
 	sarl	%eax
 	cmpl	%eax, -12(%rbp)
-	jl	.L34
+	jl	.L36
 	movl	-4(%rbp), %eax
 	movslq	%eax, %rdx
 	leaq	-48(%rbp), %rax
 	movq	%rax, %rsi
 	movl	$1, %edi
 	call	sys_print_write
-.L26:
+.L28:
 	leave
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE13:
+.LFE15:
 	.size	print_int, .-print_int
 	.section	.rodata
 .LC1:
@@ -479,7 +504,7 @@ print_int:
 	.text
 	.type	print_hex, @function
 print_hex:
-.LFB14:
+.LFB16:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -490,31 +515,31 @@ print_hex:
 	subq	$64, %rsp
 	movq	%rdi, -56(%rbp)
 	cmpq	$0, -56(%rbp)
-	jne	.L36
+	jne	.L38
 	movl	$3, %edx
 	leaq	.LC1(%rip), %rax
 	movq	%rax, %rsi
 	movl	$1, %edi
 	call	sys_print_write
-	jmp	.L35
-.L36:
+	jmp	.L37
+.L38:
 	movl	$0, -4(%rbp)
-	jmp	.L38
-.L41:
+	jmp	.L40
+.L43:
 	movq	-56(%rbp), %rax
 	andl	$15, %eax
 	movl	%eax, -12(%rbp)
 	cmpl	$9, -12(%rbp)
-	jg	.L39
+	jg	.L41
 	movl	-12(%rbp), %eax
 	addl	$48, %eax
 	movl	%eax, %ecx
-	jmp	.L40
-.L39:
+	jmp	.L42
+.L41:
 	movl	-12(%rbp), %eax
 	addl	$87, %eax
 	movl	%eax, %ecx
-.L40:
+.L42:
 	movl	-4(%rbp), %eax
 	leal	1(%rax), %edx
 	movl	%edx, -4(%rbp)
@@ -523,9 +548,9 @@ print_hex:
 	movq	-56(%rbp), %rax
 	shrq	$4, %rax
 	movq	%rax, -56(%rbp)
-.L38:
+.L40:
 	cmpq	$0, -56(%rbp)
-	jne	.L41
+	jne	.L43
 	movl	$2, %edx
 	leaq	.LC2(%rip), %rax
 	movq	%rax, %rsi
@@ -534,8 +559,8 @@ print_hex:
 	movl	-4(%rbp), %eax
 	subl	$1, %eax
 	movl	%eax, -8(%rbp)
-	jmp	.L42
-.L43:
+	jmp	.L44
+.L45:
 	movl	-8(%rbp), %eax
 	cltq
 	movzbl	-32(%rbp,%rax), %eax
@@ -546,19 +571,19 @@ print_hex:
 	movl	$1, %edi
 	call	sys_print_write
 	subl	$1, -8(%rbp)
-.L42:
+.L44:
 	cmpl	$0, -8(%rbp)
-	jns	.L43
-.L35:
+	jns	.L45
+.L37:
 	leave
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE14:
+.LFE16:
 	.size	print_hex, .-print_hex
 	.type	print_long, @function
 print_long:
-.LFB15:
+.LFB17:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -569,22 +594,22 @@ print_long:
 	subq	$64, %rsp
 	movq	%rdi, -56(%rbp)
 	cmpq	$0, -56(%rbp)
-	jne	.L45
+	jne	.L47
 	movl	$1, %edx
 	leaq	.LC0(%rip), %rax
 	movq	%rax, %rsi
 	movl	$1, %edi
 	call	sys_print_write
-	jmp	.L44
-.L45:
+	jmp	.L46
+.L47:
 	movl	$0, -4(%rbp)
 	movl	$0, -8(%rbp)
 	cmpq	$0, -56(%rbp)
-	jns	.L48
+	jns	.L50
 	movl	$1, -8(%rbp)
 	negq	-56(%rbp)
-	jmp	.L48
-.L49:
+	jmp	.L50
+.L51:
 	movq	-56(%rbp), %rcx
 	movabsq	$7378697629483820647, %rdx
 	movq	%rcx, %rax
@@ -617,20 +642,20 @@ print_long:
 	movq	%rcx, %rdx
 	subq	%rdx, %rax
 	movq	%rax, -56(%rbp)
-.L48:
+.L50:
 	cmpq	$0, -56(%rbp)
-	jg	.L49
+	jg	.L51
 	cmpl	$0, -8(%rbp)
-	je	.L50
+	je	.L52
 	movl	-4(%rbp), %eax
 	leal	1(%rax), %edx
 	movl	%edx, -4(%rbp)
 	cltq
 	movb	$45, -48(%rbp,%rax)
-.L50:
-	movl	$0, -12(%rbp)
-	jmp	.L51
 .L52:
+	movl	$0, -12(%rbp)
+	jmp	.L53
+.L54:
 	movl	-12(%rbp), %eax
 	cltq
 	movzbl	-48(%rbp,%rax), %eax
@@ -650,26 +675,26 @@ print_long:
 	movzbl	-13(%rbp), %edx
 	movb	%dl, -48(%rbp,%rax)
 	addl	$1, -12(%rbp)
-.L51:
+.L53:
 	movl	-4(%rbp), %eax
 	movl	%eax, %edx
 	shrl	$31, %edx
 	addl	%edx, %eax
 	sarl	%eax
 	cmpl	%eax, -12(%rbp)
-	jl	.L52
+	jl	.L54
 	movl	-4(%rbp), %eax
 	movslq	%eax, %rdx
 	leaq	-48(%rbp), %rax
 	movq	%rax, %rsi
 	movl	$1, %edi
 	call	sys_print_write
-.L44:
+.L46:
 	leave
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE15:
+.LFE17:
 	.size	print_long, .-print_long
 	.section	.rodata
 .LC3:
@@ -695,7 +720,7 @@ print_long:
 	.globl	test_uname
 	.type	test_uname, @function
 test_uname:
-.LFB16:
+.LFB18:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -712,7 +737,7 @@ test_uname:
 	call	sys_uname
 	movq	%rax, -8(%rbp)
 	cmpq	$0, -8(%rbp)
-	jne	.L54
+	jne	.L56
 	leaq	.LC4(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
@@ -765,8 +790,8 @@ test_uname:
 	leaq	.LC10(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
-	jmp	.L56
-.L54:
+	jmp	.L58
+.L56:
 	leaq	.LC11(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
@@ -776,13 +801,13 @@ test_uname:
 	leaq	.LC5(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
-.L56:
+.L58:
 	nop
 	leave
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE16:
+.LFE18:
 	.size	test_uname, .-test_uname
 	.section	.rodata
 .LC12:
@@ -801,7 +826,7 @@ test_uname:
 	.globl	test_lseek
 	.type	test_lseek, @function
 test_lseek:
-.LFB17:
+.LFB19:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -863,400 +888,48 @@ test_lseek:
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE17:
+.LFE19:
 	.size	test_lseek, .-test_lseek
-	.section	.rodata
-	.align 8
-.LC18:
-	.string	"\n=== TEST: sys_mmap (anonymous) ===\n"
-	.align 8
-.LC19:
-	.string	"  Test 1: Basic anonymous mapping (4KB, RW)\n"
-	.align 8
-.LC20:
-	.string	"    [FAIL] mmap returned NULL/-1\n"
-.LC21:
-	.string	"    [PASS] mmap returned: "
-.LC22:
-	.string	"    Read back: "
-.LC23:
-	.string	", "
-	.align 8
-.LC24:
-	.string	"    [PASS] Memory verification OK\n"
-	.align 8
-.LC25:
-	.string	"    [FAIL] Memory verification FAILED\n"
-.LC26:
-	.string	"    munmap returned: "
-	.align 8
-.LC27:
-	.string	"\n  Test 2: Larger mapping (8KB)\n"
-.LC28:
-	.string	"    [PASS] 8KB pattern OK\n"
-.LC29:
-	.string	"    [FAIL] Pattern FAILED\n"
-.LC30:
-	.string	"\n  Test 3: Multiple mappings\n"
-.LC31:
-	.string	"    m1="
-.LC32:
-	.string	"    m2="
-.LC33:
-	.string	"    m3="
-.LC34:
-	.string	"    Values: "
-	.text
-	.globl	test_mmap_anonymous
-	.type	test_mmap_anonymous, @function
-test_mmap_anonymous:
-.LFB18:
+	.type	sys_write, @function
+sys_write:
+.LFB20:
 	.cfi_startproc
-	endbr64
 	pushq	%rbp
 	.cfi_def_cfa_offset 16
 	.cfi_offset 6, -16
 	movq	%rsp, %rbp
 	.cfi_def_cfa_register 6
-	subq	$80, %rsp
-	leaq	.LC18(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	leaq	.LC19(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movl	$0, %r9d
-	movl	$-1, %r8d
-	movl	$34, %ecx
-	movl	$3, %edx
-	movl	$4096, %esi
-	movl	$0, %edi
-	call	sys_mmap
-	movq	%rax, -24(%rbp)
-	cmpq	$-1, -24(%rbp)
-	je	.L59
-	cmpq	$0, -24(%rbp)
-	jne	.L60
-.L59:
-	leaq	.LC20(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	jmp	.L61
-.L60:
-	leaq	.LC21(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-24(%rbp), %rax
-	movq	%rax, %rdi
-	call	print_hex
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-24(%rbp), %rax
-	movq	%rax, -32(%rbp)
-	movq	-32(%rbp), %rax
-	movabsq	$-2401053089206453570, %rcx
-	movq	%rcx, (%rax)
-	movq	-32(%rbp), %rax
-	addq	$8, %rax
-	movabsq	$1311768467294899695, %rcx
-	movq	%rcx, (%rax)
-	leaq	.LC22(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-32(%rbp), %rax
-	movq	(%rax), %rax
-	movq	%rax, %rdi
-	call	print_hex
-	leaq	.LC23(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-32(%rbp), %rax
-	addq	$8, %rax
-	movq	(%rax), %rax
-	movq	%rax, %rdi
-	call	print_hex
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-32(%rbp), %rax
-	movq	(%rax), %rdx
-	movabsq	$-2401053089206453570, %rax
-	cmpq	%rax, %rdx
-	jne	.L62
-	movq	-32(%rbp), %rax
-	addq	$8, %rax
-	movq	(%rax), %rdx
-	movabsq	$1311768467294899695, %rax
-	cmpq	%rax, %rdx
-	jne	.L62
-	leaq	.LC24(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	jmp	.L63
-.L62:
-	leaq	.LC25(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-.L63:
-	movq	-24(%rbp), %rax
-	movl	$4096, %esi
-	movq	%rax, %rdi
-	call	sys_munmap
-	movq	%rax, -40(%rbp)
-	leaq	.LC26(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-40(%rbp), %rax
-	movq	%rax, %rdi
-	call	print_long
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-.L61:
-	leaq	.LC27(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movl	$0, %r9d
-	movl	$-1, %r8d
-	movl	$34, %ecx
-	movl	$3, %edx
-	movl	$8192, %esi
-	movl	$0, %edi
-	call	sys_mmap
-	movq	%rax, -48(%rbp)
-	cmpq	$-1, -48(%rbp)
-	je	.L64
-	cmpq	$0, -48(%rbp)
-	jne	.L65
-.L64:
-	leaq	.LC20(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	jmp	.L66
-.L65:
-	leaq	.LC21(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-48(%rbp), %rax
-	movq	%rax, %rdi
-	call	print_hex
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-48(%rbp), %rax
-	movq	%rax, -56(%rbp)
-	movl	$0, -4(%rbp)
-	jmp	.L67
-.L68:
+	subq	$24, %rsp
+	movl	%edi, -4(%rbp)
+	movq	%rsi, -16(%rbp)
+	movq	%rdx, -24(%rbp)
+	movq	-16(%rbp), %rdx
 	movl	-4(%rbp), %eax
-	movslq	%eax, %rdx
-	movq	-56(%rbp), %rax
-	addq	%rdx, %rax
-	movl	-4(%rbp), %edx
-	movb	%dl, (%rax)
-	addl	$1, -4(%rbp)
-.L67:
-	cmpl	$8191, -4(%rbp)
-	jle	.L68
-	movl	$1, -8(%rbp)
-	movl	$0, -12(%rbp)
-	jmp	.L69
-.L72:
-	movl	-12(%rbp), %eax
-	movslq	%eax, %rdx
-	movq	-56(%rbp), %rax
-	addq	%rdx, %rax
-	movzbl	(%rax), %eax
-	movl	-12(%rbp), %edx
-	cmpb	%dl, %al
-	je	.L70
-	movl	$0, -8(%rbp)
-	jmp	.L71
-.L70:
-	addl	$1, -12(%rbp)
-.L69:
-	cmpl	$8191, -12(%rbp)
-	jle	.L72
-.L71:
-	cmpl	$0, -8(%rbp)
-	je	.L73
-	leaq	.LC28(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	jmp	.L74
-.L73:
-	leaq	.LC29(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-.L74:
-	movq	-48(%rbp), %rax
-	movl	$8192, %esi
-	movq	%rax, %rdi
-	call	sys_munmap
-.L66:
-	leaq	.LC30(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movl	$0, %r9d
-	movl	$-1, %r8d
-	movl	$34, %ecx
-	movl	$3, %edx
-	movl	$4096, %esi
-	movl	$0, %edi
-	call	sys_mmap
-	movq	%rax, -64(%rbp)
-	movl	$0, %r9d
-	movl	$-1, %r8d
-	movl	$34, %ecx
-	movl	$3, %edx
-	movl	$4096, %esi
-	movl	$0, %edi
-	call	sys_mmap
-	movq	%rax, -72(%rbp)
-	movl	$0, %r9d
-	movl	$-1, %r8d
-	movl	$34, %ecx
-	movl	$3, %edx
-	movl	$4096, %esi
-	movl	$0, %edi
-	call	sys_mmap
-	movq	%rax, -80(%rbp)
-	leaq	.LC31(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-64(%rbp), %rax
-	movq	%rax, %rdi
-	call	print_hex
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	leaq	.LC32(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-72(%rbp), %rax
-	movq	%rax, %rdi
-	call	print_hex
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	leaq	.LC33(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	movq	-80(%rbp), %rax
-	movq	%rax, %rdi
-	call	print_hex
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	cmpq	$0, -64(%rbp)
-	je	.L75
-	cmpq	$-1, -64(%rbp)
-	je	.L75
-	movq	-64(%rbp), %rax
-	movq	$43690, (%rax)
-.L75:
-	cmpq	$0, -72(%rbp)
-	je	.L76
-	cmpq	$-1, -72(%rbp)
-	je	.L76
-	movq	-72(%rbp), %rax
-	movq	$48059, (%rax)
-.L76:
-	cmpq	$0, -80(%rbp)
-	je	.L77
-	cmpq	$-1, -80(%rbp)
-	je	.L77
-	movq	-80(%rbp), %rax
-	movq	$52428, (%rax)
-.L77:
-	leaq	.LC34(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	cmpq	$0, -64(%rbp)
-	je	.L78
-	cmpq	$-1, -64(%rbp)
-	je	.L78
-	movq	-64(%rbp), %rax
-	movq	(%rax), %rax
-	movq	%rax, %rdi
-	call	print_hex
-.L78:
-	leaq	.LC23(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	cmpq	$0, -72(%rbp)
-	je	.L79
-	cmpq	$-1, -72(%rbp)
-	je	.L79
-	movq	-72(%rbp), %rax
-	movq	(%rax), %rax
-	movq	%rax, %rdi
-	call	print_hex
-.L79:
-	leaq	.LC23(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	cmpq	$0, -80(%rbp)
-	je	.L80
-	cmpq	$-1, -80(%rbp)
-	je	.L80
-	movq	-80(%rbp), %rax
-	movq	(%rax), %rax
-	movq	%rax, %rdi
-	call	print_hex
-.L80:
-	leaq	.LC5(%rip), %rax
-	movq	%rax, %rdi
-	call	print_str
-	cmpq	$0, -64(%rbp)
-	je	.L81
-	cmpq	$-1, -64(%rbp)
-	je	.L81
-	movq	-64(%rbp), %rax
-	movl	$4096, %esi
-	movq	%rax, %rdi
-	call	sys_munmap
-.L81:
-	cmpq	$0, -72(%rbp)
-	je	.L82
-	cmpq	$-1, -72(%rbp)
-	je	.L82
-	movq	-72(%rbp), %rax
-	movl	$4096, %esi
-	movq	%rax, %rdi
-	call	sys_munmap
-.L82:
-	cmpq	$0, -80(%rbp)
-	je	.L84
-	cmpq	$-1, -80(%rbp)
-	je	.L84
-	movq	-80(%rbp), %rax
-	movl	$4096, %esi
-	movq	%rax, %rdi
-	call	sys_munmap
-.L84:
-	nop
+	cltq
+	movq	-24(%rbp), %rcx
+	movq	%rax, %rsi
+	movl	$1, %edi
+	call	syscall3
 	leave
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE18:
-	.size	test_mmap_anonymous, .-test_mmap_anonymous
+.LFE20:
+	.size	sys_write, .-sys_write
 	.section	.rodata
-.LC35:
+.LC18:
 	.string	"\n=== Unix Syscall Tests ===\n"
-.LC36:
+.LC19:
 	.string	"argv["
-.LC37:
+.LC20:
 	.string	"] = "
-.LC38:
+.LC21:
 	.string	"\n=== All Tests Complete ===\n"
 	.text
 	.globl	main_program
 	.type	main_program, @function
 main_program:
-.LFB19:
+.LFB22:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -1267,19 +940,19 @@ main_program:
 	subq	$32, %rsp
 	movl	%edi, -20(%rbp)
 	movq	%rsi, -32(%rbp)
-	leaq	.LC35(%rip), %rax
+	leaq	.LC18(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	movl	$0, -4(%rbp)
-	jmp	.L86
-.L87:
-	leaq	.LC36(%rip), %rax
+	jmp	.L63
+.L64:
+	leaq	.LC19(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	movl	-4(%rbp), %eax
 	movl	%eax, %edi
 	call	print_int
-	leaq	.LC37(%rip), %rax
+	leaq	.LC20(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	movl	-4(%rbp), %eax
@@ -1294,17 +967,21 @@ main_program:
 	movq	%rax, %rdi
 	call	print_str
 	addl	$1, -4(%rbp)
-.L86:
+.L63:
 	movl	-4(%rbp), %eax
 	cmpl	-20(%rbp), %eax
-	jl	.L87
+	jl	.L64
+	movl	$0, %eax
+	call	test_mmap_anonymous
+	movl	$0, %eax
+	call	test_mmap_mprotect
+	movl	$0, %eax
+	call	test_mmap_multi
 	movl	$0, %eax
 	call	test_uname
 	movl	$0, %eax
 	call	test_lseek
-	movl	$0, %eax
-	call	test_mmap_anonymous
-	leaq	.LC38(%rip), %rax
+	leaq	.LC21(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	nop
@@ -1312,22 +989,578 @@ main_program:
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE19:
+.LFE22:
 	.size	main_program, .-main_program
 	.section	.rodata
+	.align 8
+.LC22:
+	.string	"\n--- TEST: anonymous mmap ---\n"
+	.align 8
+.LC23:
+	.string	"  [FAIL] mmap returned MAP_FAILED\n"
+.LC24:
+	.string	"  OK: got mapping at "
+.LC25:
+	.string	"  [FAIL] byte "
+.LC26:
+	.string	" is "
+.LC27:
+	.string	", expected 0\n"
+.LC28:
+	.string	"  OK: all bytes zeroed\n"
+.LC29:
+	.string	"  [FAIL] pattern mismatch at "
+	.align 8
+.LC30:
+	.string	"  OK: pattern write/read-back passed\n"
+.LC31:
+	.string	"  [FAIL] munmap returned "
+.LC32:
+	.string	"  OK: munmap succeeded\n"
+.LC33:
+	.string	"  [PASS] anonymous mmap\n"
+	.text
+	.globl	test_mmap_anonymous
+	.type	test_mmap_anonymous, @function
+test_mmap_anonymous:
+.LFB23:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$48, %rsp
+	leaq	.LC22(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	$0, %r9d
+	movl	$-1, %r8d
+	movl	$34, %ecx
+	movl	$3, %edx
+	movl	$8192, %esi
+	movl	$0, %edi
+	call	sys_mmap
+	movq	%rax, -24(%rbp)
+	cmpq	$-1, -24(%rbp)
+	jne	.L66
+	leaq	.LC23(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	jmp	.L65
+.L66:
+	leaq	.LC24(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-24(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_hex
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-24(%rbp), %rax
+	movq	%rax, -32(%rbp)
+	movl	$1, -4(%rbp)
+	movl	$0, -8(%rbp)
+	jmp	.L68
+.L71:
+	movl	-8(%rbp), %eax
+	movslq	%eax, %rdx
+	movq	-32(%rbp), %rax
+	addq	%rdx, %rax
+	movzbl	(%rax), %eax
+	testb	%al, %al
+	je	.L69
+	leaq	.LC25(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	-8(%rbp), %eax
+	movl	%eax, %edi
+	call	print_int
+	leaq	.LC26(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	-8(%rbp), %eax
+	movslq	%eax, %rdx
+	movq	-32(%rbp), %rax
+	addq	%rdx, %rax
+	movzbl	(%rax), %eax
+	movzbl	%al, %eax
+	movq	%rax, %rdi
+	call	print_hex
+	leaq	.LC27(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	$0, -4(%rbp)
+	jmp	.L70
+.L69:
+	addl	$1, -8(%rbp)
+.L68:
+	cmpl	$8191, -8(%rbp)
+	jle	.L71
+.L70:
+	cmpl	$0, -4(%rbp)
+	je	.L72
+	leaq	.LC28(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+.L72:
+	movl	$0, -12(%rbp)
+	jmp	.L73
+.L74:
+	movl	-12(%rbp), %eax
+	movslq	%eax, %rdx
+	movq	-32(%rbp), %rax
+	addq	%rdx, %rax
+	movl	-12(%rbp), %edx
+	movb	%dl, (%rax)
+	addl	$1, -12(%rbp)
+.L73:
+	cmpl	$8191, -12(%rbp)
+	jle	.L74
+	movl	$1, -4(%rbp)
+	movl	$0, -16(%rbp)
+	jmp	.L75
+.L78:
+	movl	-16(%rbp), %eax
+	movslq	%eax, %rdx
+	movq	-32(%rbp), %rax
+	addq	%rdx, %rax
+	movzbl	(%rax), %eax
+	movl	-16(%rbp), %edx
+	cmpb	%dl, %al
+	je	.L76
+	leaq	.LC29(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	-16(%rbp), %eax
+	movl	%eax, %edi
+	call	print_int
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	$0, -4(%rbp)
+	jmp	.L77
+.L76:
+	addl	$1, -16(%rbp)
+.L75:
+	cmpl	$8191, -16(%rbp)
+	jle	.L78
+.L77:
+	cmpl	$0, -4(%rbp)
+	je	.L79
+	leaq	.LC30(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+.L79:
+	movq	-24(%rbp), %rax
+	movl	$8192, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	movq	%rax, -40(%rbp)
+	cmpq	$0, -40(%rbp)
+	je	.L80
+	leaq	.LC31(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-40(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_long
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	jmp	.L65
+.L80:
+	leaq	.LC32(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	leaq	.LC33(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+.L65:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE23:
+	.size	test_mmap_anonymous, .-test_mmap_anonymous
+	.section	.rodata
+.LC34:
+	.string	"\n--- TEST: mprotect ---\n"
+.LC35:
+	.string	"  [FAIL] mmap failed\n"
+	.align 8
+.LC36:
+	.string	"  [FAIL] mprotect PROT_READ returned "
+	.align 8
+.LC37:
+	.string	"  OK: mprotect PROT_READ applied\n"
+	.align 8
+.LC38:
+	.string	"  [FAIL] data not readable after mprotect\n"
 .LC39:
-	.string	"\nEnvironment:\n"
+	.string	"  OK: data still readable\n"
+	.align 8
 .LC40:
-	.string	"  <none>\n"
+	.string	"  [FAIL] mprotect restore returned "
+	.align 8
 .LC41:
-	.string	"  envp["
+	.string	"  OK: mprotect restore applied\n"
+	.align 8
 .LC42:
+	.string	"  [FAIL] write after mprotect restore failed\n"
+	.align 8
+.LC43:
+	.string	"  OK: write after restore succeeded\n"
+.LC44:
+	.string	"  [PASS] mprotect\n"
+	.text
+	.globl	test_mmap_mprotect
+	.type	test_mmap_mprotect, @function
+test_mmap_mprotect:
+.LFB24:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$16, %rsp
+	leaq	.LC34(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	$0, %r9d
+	movl	$-1, %r8d
+	movl	$34, %ecx
+	movl	$3, %edx
+	movl	$4096, %esi
+	movl	$0, %edi
+	call	sys_mmap
+	movq	%rax, -8(%rbp)
+	cmpq	$-1, -8(%rbp)
+	jne	.L82
+	leaq	.LC35(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	jmp	.L81
+.L82:
+	movq	-8(%rbp), %rax
+	movb	$-66, (%rax)
+	movq	-8(%rbp), %rax
+	movl	$1, %edx
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_mprotect
+	movq	%rax, -16(%rbp)
+	cmpq	$0, -16(%rbp)
+	je	.L84
+	leaq	.LC36(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-16(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_long
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	jmp	.L81
+.L84:
+	leaq	.LC37(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movzbl	(%rax), %eax
+	cmpb	$-66, %al
+	je	.L85
+	leaq	.LC38(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	jmp	.L81
+.L85:
+	leaq	.LC39(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movl	$3, %edx
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_mprotect
+	movq	%rax, -16(%rbp)
+	cmpq	$0, -16(%rbp)
+	je	.L86
+	leaq	.LC40(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-16(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_long
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	jmp	.L81
+.L86:
+	leaq	.LC41(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movb	$-17, (%rax)
+	movq	-8(%rbp), %rax
+	movzbl	(%rax), %eax
+	cmpb	$-17, %al
+	je	.L87
+	leaq	.LC42(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	jmp	.L81
+.L87:
+	leaq	.LC43(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	leaq	.LC44(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+.L81:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE24:
+	.size	test_mmap_mprotect, .-test_mmap_mprotect
+	.section	.rodata
+	.align 8
+.LC45:
+	.string	"\n--- TEST: multiple mappings ---\n"
+	.align 8
+.LC46:
+	.string	"  [FAIL] one of the mappings failed\n"
+.LC47:
+	.string	"  OK: 3 mappings created\n"
+.LC48:
+	.string	"  [FAIL] mappings overlap\n"
+.LC49:
+	.string	"  a = "
+.LC50:
+	.string	"  b = "
+.LC51:
+	.string	"  c = "
+.LC52:
+	.string	"  OK: distinct addresses\n"
+.LC53:
+	.string	"  [PASS] multiple mappings\n"
+	.text
+	.globl	test_mmap_multi
+	.type	test_mmap_multi, @function
+test_mmap_multi:
+.LFB25:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$32, %rsp
+	leaq	.LC45(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movl	$0, %r9d
+	movl	$-1, %r8d
+	movl	$34, %ecx
+	movl	$3, %edx
+	movl	$4096, %esi
+	movl	$0, %edi
+	call	sys_mmap
+	movq	%rax, -8(%rbp)
+	movl	$0, %r9d
+	movl	$-1, %r8d
+	movl	$34, %ecx
+	movl	$3, %edx
+	movl	$8192, %esi
+	movl	$0, %edi
+	call	sys_mmap
+	movq	%rax, -16(%rbp)
+	movl	$0, %r9d
+	movl	$-1, %r8d
+	movl	$34, %ecx
+	movl	$1, %edx
+	movl	$16384, %esi
+	movl	$0, %edi
+	call	sys_mmap
+	movq	%rax, -24(%rbp)
+	cmpq	$-1, -8(%rbp)
+	je	.L89
+	cmpq	$-1, -16(%rbp)
+	je	.L89
+	cmpq	$-1, -24(%rbp)
+	jne	.L90
+.L89:
+	leaq	.LC46(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	cmpq	$-1, -8(%rbp)
+	je	.L91
+	movq	-8(%rbp), %rax
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+.L91:
+	cmpq	$-1, -16(%rbp)
+	je	.L92
+	movq	-16(%rbp), %rax
+	movl	$8192, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+.L92:
+	cmpq	$-1, -24(%rbp)
+	je	.L98
+	movq	-24(%rbp), %rax
+	movl	$16384, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	jmp	.L98
+.L90:
+	leaq	.LC47(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	cmpq	-16(%rbp), %rax
+	je	.L95
+	movq	-16(%rbp), %rax
+	cmpq	-24(%rbp), %rax
+	je	.L95
+	movq	-8(%rbp), %rax
+	cmpq	-24(%rbp), %rax
+	jne	.L96
+.L95:
+	leaq	.LC48(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	jmp	.L97
+.L96:
+	leaq	.LC49(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-8(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_hex
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	leaq	.LC50(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-16(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_hex
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	leaq	.LC51(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	movq	-24(%rbp), %rax
+	movq	%rax, %rdi
+	call	print_hex
+	leaq	.LC5(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	leaq	.LC52(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+.L97:
+	movq	-8(%rbp), %rax
+	movl	$4096, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	movq	-16(%rbp), %rax
+	movl	$8192, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	movq	-24(%rbp), %rax
+	movl	$16384, %esi
+	movq	%rax, %rdi
+	call	sys_munmap
+	leaq	.LC53(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	jmp	.L88
+.L98:
+	nop
+.L88:
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE25:
+	.size	test_mmap_multi, .-test_mmap_multi
+	.section	.rodata
+.LC54:
+	.string	"HELLO VIA SYS_WRITE\n"
+	.text
+	.globl	test_console_sys_write
+	.type	test_console_sys_write, @function
+test_console_sys_write:
+.LFB26:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$16, %rsp
+	leaq	.LC54(%rip), %rax
+	movq	%rax, -8(%rbp)
+	movq	-8(%rbp), %rax
+	movl	$21, %edx
+	movq	%rax, %rsi
+	movl	$1, %edi
+	call	sys_write
+	nop
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE26:
+	.size	test_console_sys_write, .-test_console_sys_write
+	.section	.rodata
+.LC55:
+	.string	"\nEnvironment:\n"
+.LC56:
+	.string	"  <none>\n"
+.LC57:
+	.string	"  envp["
+.LC58:
+	.string	"INSIDE "
+.LC59:
 	.string	"\nDone.\n"
 	.text
 	.globl	_start
 	.type	_start, @function
 _start:
-.LFB20:
+.LFB27:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
@@ -1356,36 +1589,34 @@ _start:
 	movq	%rax, %rsi
 	movl	$1, %edi
 	call	sys_print_write
-	movq	-64(%rbp), %rdx
-	movl	-52(%rbp), %eax
-	movq	%rdx, %rsi
-	movl	%eax, %edi
-	call	main_program
-	leaq	.LC39(%rip), %rax
+	leaq	.LC55(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	cmpq	$0, -72(%rbp)
-	je	.L89
+	je	.L101
 	movq	-72(%rbp), %rax
 	movq	(%rax), %rax
 	testq	%rax, %rax
-	jne	.L90
-.L89:
-	leaq	.LC40(%rip), %rax
+	jne	.L102
+.L101:
+	leaq	.LC56(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
-	jmp	.L91
-.L90:
+	jmp	.L103
+.L102:
 	movl	$0, -4(%rbp)
-	jmp	.L92
-.L93:
-	leaq	.LC41(%rip), %rax
+	jmp	.L104
+.L105:
+	leaq	.LC57(%rip), %rax
+	movq	%rax, %rdi
+	call	print_str
+	leaq	.LC58(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	movl	-4(%rbp), %eax
 	movl	%eax, %edi
 	call	print_int
-	leaq	.LC37(%rip), %rax
+	leaq	.LC20(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	movl	-4(%rbp), %eax
@@ -1400,7 +1631,7 @@ _start:
 	movq	%rax, %rdi
 	call	print_str
 	addl	$1, -4(%rbp)
-.L92:
+.L104:
 	movl	-4(%rbp), %eax
 	cltq
 	leaq	0(,%rax,8), %rdx
@@ -1408,10 +1639,17 @@ _start:
 	addq	%rdx, %rax
 	movq	(%rax), %rax
 	testq	%rax, %rax
-	jne	.L93
-.L91:
+	jne	.L105
+.L103:
+	movq	-64(%rbp), %rdx
+	movl	-52(%rbp), %eax
+	movq	%rdx, %rsi
+	movl	%eax, %edi
+	call	main_program
+	movl	$0, %eax
+	call	test_console_sys_write
 	call	sys_fuck_you
-	leaq	.LC42(%rip), %rax
+	leaq	.LC59(%rip), %rax
 	movq	%rax, %rdi
 	call	print_str
 	nop
@@ -1419,7 +1657,7 @@ _start:
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
-.LFE20:
+.LFE27:
 	.size	_start, .-_start
 	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
 	.section	.note.GNU-stack,"",@progbits

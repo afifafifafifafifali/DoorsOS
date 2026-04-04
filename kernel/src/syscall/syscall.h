@@ -50,9 +50,6 @@ struct timespec {
 #define SYS_WAITPID          61
 #define SYS_GETPID           39
 
-// Memory management
-#define SYS_MMAP            214
-#define SYS_MUNMAP          215
 #define SYS_BRK             12
 
 // File operations
@@ -77,6 +74,12 @@ struct timespec {
 #define SYS_LOAD_SO       67672
 #define SYS_FUCK_YOU      67673
 
+/* Memory mapping — standard Linux x86_64 numbers */
+#define SYS_MMAP          9
+#define SYS_MPROTECT      10
+#define SYS_MUNMAP        11
+#define SYS_MSYNC         26
+
 
 
 // Open flags
@@ -92,18 +95,7 @@ struct timespec {
 #define SEEK_CUR            1
 #define SEEK_END            2
 
-// prrotection flags for mmap
-#define PROT_NONE           0x0
-#define PROT_READ           0x1
-#define PROT_WRITE          0x2
-#define PROT_EXEC           0x4
 
-// mmap flags
-#define MAP_SHARED          0x01
-#define MAP_PRIVATE         0x02
-#define MAP_FIXED           0x10
-#define MAP_ANONYMOUS       0x20
-#define MAP_POPULATE        0x80
 
 // Error codes (errno values)
 #define E_SUCCESS           0
@@ -245,15 +237,7 @@ static inline int64_t sys_getpid(void) {
     return syscall0(SYS_GETPID);
 }
 
-// Memory management
-static inline int64_t sys_mmap(void* addr, size_t length, int prot, int flags,
-                               int fd, off_t offset) {
-    return syscall6(SYS_MMAP, (uint64_t)addr, length, prot, flags, fd, offset);
-}
 
-static inline int64_t sys_munmap(void* addr, size_t length) {
-    return syscall2(SYS_MUNMAP, (uint64_t)addr, length);
-}
 
 static inline int64_t sys_brk(void* addr) {
     return syscall1(SYS_BRK, (uint64_t)addr);
@@ -297,6 +281,24 @@ static inline uint64_t sys_print_write(int fd, const char* buf, uint64_t count) 
 
 static inline int64_t sys_fuck_you(void) {
     return syscall(SYS_FUCK_YOU, 11, 22, 33, 44, 55, 66);
+}
+
+/* Memory mapping syscalls */
+static inline void* sys_mmap(void* addr, size_t length, int prot, int flags,
+                              int fd, size_t offset) {
+    return (void*)syscall6(SYS_MMAP, (uint64_t)addr, length, prot, flags, fd, offset);
+}
+
+static inline int64_t sys_munmap(void* addr, size_t length) {
+    return syscall2(SYS_MUNMAP, (uint64_t)addr, length);
+}
+
+static inline int64_t sys_msync(void* addr, size_t length) {
+    return syscall2(SYS_MSYNC, (uint64_t)addr, length);
+}
+
+static inline int64_t sys_mprotect(void* addr, size_t length, int prot) {
+    return syscall3(SYS_MPROTECT, (uint64_t)addr, length, prot);
 }
 
 

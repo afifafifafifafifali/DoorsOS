@@ -21,8 +21,7 @@ void setMemoryMap(uint8_t selection);
 void* printHeader(void* start);
 void* getMemoryMapBase();
 uint64_t getMemoryMapLength();
-void* phys_to_virt(uint64_t phys_addr);
-uint64_t virt_to_phys(void* virt_addr);
+
 void* k_malloc(size_t size);
 void k_free(void* ptr);
 void init_pmm(void);

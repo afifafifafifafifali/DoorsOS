@@ -7,23 +7,30 @@
 #define SYS_FUCK_YOU      67673
 #define SYS_UNAME         63
 #define SYS_LSEEK         49
-#define SYS_MMAP          214
-#define SYS_MUNMAP        215
 
-// mmap flags
-#define PROT_NONE         0x0
-#define PROT_READ         0x1
-#define PROT_WRITE        0x2
-#define PROT_EXEC         0x4
-#define MAP_SHARED        0x01
-#define MAP_PRIVATE       0x02
-#define MAP_ANONYMOUS     0x20
-#define MAP_FIXED         0x10
 
 // lseek whence
 #define SEEK_SET          0
 #define SEEK_CUR          1
 #define SEEK_END          2
+
+/* mmap / munmap / mprotect / msync — standard x86_64 Linux numbers */
+#define SYS_MMAP          9
+#define SYS_MUNMAP        11
+#define SYS_MPROTECT      10
+#define SYS_MSYNC         26
+
+/* mmap flags */
+#define PROT_READ         0x1
+#define PROT_WRITE        0x2
+#define PROT_EXEC         0x4
+#define PROT_NONE         0x0
+#define MAP_SHARED        0x01
+#define MAP_PRIVATE       0x02
+#define MAP_ANONYMOUS     0x20
+#define MAP_ANON          MAP_ANONYMOUS
+#define MAP_FIXED         0x10
+#define MAP_FAILED        ((void *)-1)
 
 // ============================================================
 // Syscall wrapper
@@ -94,15 +101,24 @@ static inline int64_t sys_lseek(int fd, int64_t offset, int whence) {
     return syscall3(SYS_LSEEK, (uint64_t)fd, (uint64_t)offset, (uint64_t)whence);
 }
 
+/* mmap syscall wrappers */
 static inline void* sys_mmap(void* addr, uint64_t length, int prot, int flags,
-                             int fd, int64_t offset) {
-    return (void*)syscall6(SYS_MMAP, (uint64_t)addr, length, (uint64_t)prot,
-                           (uint64_t)flags, (uint64_t)fd, (uint64_t)offset);
+                              int fd, uint64_t offset) {
+    return (void*)syscall6(SYS_MMAP, (uint64_t)addr, length, prot, flags, fd, offset);
 }
 
 static inline int64_t sys_munmap(void* addr, uint64_t length) {
     return syscall2(SYS_MUNMAP, (uint64_t)addr, length);
 }
+
+static inline int64_t sys_mprotect(void* addr, uint64_t length, int prot) {
+    return syscall3(SYS_MPROTECT, (uint64_t)addr, length, prot);
+}
+
+static inline int64_t sys_msync(void* addr, uint64_t length) {
+    return syscall2(SYS_MSYNC, (uint64_t)addr, length);
+}
+
 
 // ============================================================
 // Helper functions
@@ -263,100 +279,19 @@ void test_lseek() {
     print_str("  [INFO] lseek tested\n");
 }
 
-void test_mmap_anonymous() {
-    print_str("\n=== TEST: sys_mmap (anonymous) ===\n");
-    
-    print_str("  Test 1: Basic anonymous mapping (4KB, RW)\n");
-    void* addr1 = sys_mmap(NULL, 4096, PROT_READ | PROT_WRITE, 
-                           MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    
-    if (addr1 == (void*)-1 || addr1 == NULL) {
-        print_str("    [FAIL] mmap returned NULL/-1\n");
-    } else {
-        print_str("    [PASS] mmap returned: ");
-        print_hex((uint64_t)addr1);
-        print_str("\n");
-        
-        volatile uint64_t* ptr = (volatile uint64_t*)addr1;
-        ptr[0] = 0xDEADBEEFCAFEBABEULL;
-        ptr[1] = 0x1234567890ABCDEFULL;
-        
-        print_str("    Read back: ");
-        print_hex(ptr[0]);
-        print_str(", ");
-        print_hex(ptr[1]);
-        print_str("\n");
-        
-        if (ptr[0] == 0xDEADBEEFCAFEBABEULL && ptr[1] == 0x1234567890ABCDEFULL) {
-            print_str("    [PASS] Memory verification OK\n");
-        } else {
-            print_str("    [FAIL] Memory verification FAILED\n");
-        }
-        
-        int64_t unmap_ret = sys_munmap(addr1, 4096);
-        print_str("    munmap returned: ");
-        print_long(unmap_ret);
-        print_str("\n");
-    }
-    
-    print_str("\n  Test 2: Larger mapping (8KB)\n");
-    void* addr2 = sys_mmap(NULL, 8192, PROT_READ | PROT_WRITE,
-                           MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    
-    if (addr2 == (void*)-1 || addr2 == NULL) {
-        print_str("    [FAIL] mmap returned NULL/-1\n");
-    } else {
-        print_str("    [PASS] mmap returned: ");
-        print_hex((uint64_t)addr2);
-        print_str("\n");
-        
-        volatile uint8_t* bytes = (volatile uint8_t*)addr2;
-        for (int i = 0; i < 8192; i++) {
-            bytes[i] = (uint8_t)(i & 0xFF);
-        }
-        
-        int pass = 1;
-        for (int i = 0; i < 8192; i++) {
-            if (bytes[i] != (uint8_t)(i & 0xFF)) {
-                pass = 0;
-                break;
-            }
-        }
-        
-        if (pass) {
-            print_str("    [PASS] 8KB pattern OK\n");
-        } else {
-            print_str("    [FAIL] Pattern FAILED\n");
-        }
-        
-        sys_munmap(addr2, 8192);
-    }
-    
-    print_str("\n  Test 3: Multiple mappings\n");
-    void* m1 = sys_mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    void* m2 = sys_mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    void* m3 = sys_mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    
-    print_str("    m1="); print_hex((uint64_t)m1); print_str("\n");
-    print_str("    m2="); print_hex((uint64_t)m2); print_str("\n");
-    print_str("    m3="); print_hex((uint64_t)m3); print_str("\n");
-    
-    if (m1 && m1 != (void*)-1) ((volatile uint64_t*)m1)[0] = 0xAAAA;
-    if (m2 && m2 != (void*)-1) ((volatile uint64_t*)m2)[0] = 0xBBBB;
-    if (m3 && m3 != (void*)-1) ((volatile uint64_t*)m3)[0] = 0xCCCC;
-    
-    print_str("    Values: ");
-    if (m1 && m1 != (void*)-1) print_hex(((volatile uint64_t*)m1)[0]);
-    print_str(", ");
-    if (m2 && m2 != (void*)-1) print_hex(((volatile uint64_t*)m2)[0]);
-    print_str(", ");
-    if (m3 && m3 != (void*)-1) print_hex(((volatile uint64_t*)m3)[0]);
-    print_str("\n");
-    
-    if (m1 && m1 != (void*)-1) sys_munmap(m1, 4096);
-    if (m2 && m2 != (void*)-1) sys_munmap(m2, 4096);
-    if (m3 && m3 != (void*)-1) sys_munmap(m3, 4096);
+#define SYS_READ              0
+#define SYS_WRITE             1
+#define SYS_OPEN              2
+#define SYS_CLOSE             3
+
+static inline int64_t sys_write(int fd, const void* buf, size_t count) {
+    return syscall3(SYS_WRITE, (uint64_t)fd, (uint64_t)buf, count);
 }
+
+static inline int64_t sys_open(const char* pathname, int flags, int mode) {
+    return syscall3(SYS_OPEN, (uint64_t)pathname, flags, mode);
+}
+
 
 // ============================================================
 // Main program
@@ -372,18 +307,172 @@ void main_program(int argc, char **argv) {
         print_str("\n");
     }
     
+    test_mmap_anonymous();
+    test_mmap_mprotect();
+    test_mmap_multi();
     test_uname();
     test_lseek();
-    test_mmap_anonymous();
+
     
+
+
     print_str("\n=== All Tests Complete ===\n");
 }
 
+/* ============================================================
+ * mmap / mprotect / munmap / msync tests
+ * ============================================================*/
+
+void test_mmap_anonymous() {
+    print_str("\n--- TEST: anonymous mmap ---\n");
+
+    void *p = sys_mmap(0, 8192, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    if (p == MAP_FAILED) {
+        print_str("  [FAIL] mmap returned MAP_FAILED\n");
+        return;
+    }
+    print_str("  OK: got mapping at ");
+    print_hex((uint64_t)p);
+    print_str("\n");
+
+    /* Should be zeroed */
+    uint8_t *b = (uint8_t *)p;
+    int ok = 1;
+    for (int i = 0; i < 8192; i++) {
+        if (b[i] != 0) {
+            print_str("  [FAIL] byte ");
+            print_int(i);
+            print_str(" is ");
+            print_hex(b[i]);
+            print_str(", expected 0\n");
+            ok = 0;
+            break;
+        }
+    }
+    if (ok) print_str("  OK: all bytes zeroed\n");
+
+    /* Write pattern */
+    for (int i = 0; i < 8192; i++)
+        b[i] = (uint8_t)(i & 0xFF);
+
+    /* Read back */
+    ok = 1;
+    for (int i = 0; i < 8192; i++) {
+        if (b[i] != (uint8_t)(i & 0xFF)) {
+            print_str("  [FAIL] pattern mismatch at ");
+            print_int(i);
+            print_str("\n");
+            ok = 0;
+            break;
+        }
+    }
+    if (ok) print_str("  OK: pattern write/read-back passed\n");
+
+    int64_t ret = sys_munmap(p, 8192);
+    if (ret != 0) {
+        print_str("  [FAIL] munmap returned ");
+        print_long(ret);
+        print_str("\n");
+        return;
+    }
+    print_str("  OK: munmap succeeded\n");
+    print_str("  [PASS] anonymous mmap\n");
+}
+
+void test_mmap_mprotect() {
+    print_str("\n--- TEST: mprotect ---\n");
+
+    void *p = sys_mmap(0, 4096, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (p == MAP_FAILED) {
+        print_str("  [FAIL] mmap failed\n");
+        return;
+    }
+
+    ((uint8_t *)p)[0] = 0xBE;
+
+    int64_t ret = sys_mprotect(p, 4096, PROT_READ);
+    if (ret != 0) {
+        print_str("  [FAIL] mprotect PROT_READ returned ");
+        print_long(ret);
+        print_str("\n");
+        sys_munmap(p, 4096);
+        return;
+    }
+    print_str("  OK: mprotect PROT_READ applied\n");
+
+    if (((uint8_t *)p)[0] != 0xBE) {
+        print_str("  [FAIL] data not readable after mprotect\n");
+        sys_munmap(p, 4096);
+        return;
+    }
+    print_str("  OK: data still readable\n");
+
+    ret = sys_mprotect(p, 4096, PROT_READ | PROT_WRITE);
+    if (ret != 0) {
+        print_str("  [FAIL] mprotect restore returned ");
+        print_long(ret);
+        print_str("\n");
+        sys_munmap(p, 4096);
+        return;
+    }
+    print_str("  OK: mprotect restore applied\n");
+
+    ((uint8_t *)p)[0] = 0xEF;
+    if (((uint8_t *)p)[0] != 0xEF) {
+        print_str("  [FAIL] write after mprotect restore failed\n");
+        sys_munmap(p, 4096);
+        return;
+    }
+    print_str("  OK: write after restore succeeded\n");
+
+    sys_munmap(p, 4096);
+    print_str("  [PASS] mprotect\n");
+}
+
+void test_mmap_multi() {
+    print_str("\n--- TEST: multiple mappings ---\n");
+
+    void *a = sys_mmap(0, 4096,  PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    void *b = sys_mmap(0, 8192,  PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    void *c = sys_mmap(0, 16384, PROT_READ,               MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    if (a == MAP_FAILED || b == MAP_FAILED || c == MAP_FAILED) {
+        print_str("  [FAIL] one of the mappings failed\n");
+        if (a != MAP_FAILED) sys_munmap(a, 4096);
+        if (b != MAP_FAILED) sys_munmap(b, 8192);
+        if (c != MAP_FAILED) sys_munmap(c, 16384);
+        return;
+    }
+
+    print_str("  OK: 3 mappings created\n");
+
+    if (a == b || b == c || a == c) {
+        print_str("  [FAIL] mappings overlap\n");
+    } else {
+        print_str("  a = "); print_hex((uint64_t)a); print_str("\n");
+        print_str("  b = "); print_hex((uint64_t)b); print_str("\n");
+        print_str("  c = "); print_hex((uint64_t)c); print_str("\n");
+        print_str("  OK: distinct addresses\n");
+    }
+
+    sys_munmap(a, 4096);
+    sys_munmap(b, 8192);
+    sys_munmap(c, 16384);
+    print_str("  [PASS] multiple mappings\n");
+}
+
+void test_console_sys_write() {
+    const char* msg = "HELLO VIA SYS_WRITE\n";
+    sys_write(1, msg, 21);
+}
 void _start(int argc, char **argv, char **envp) {
+  
+    
     const char msg[] = "Hello, DoorsOS! Unix Syscall Test Edition!\n";
     sys_print_write(1, msg, sizeof(msg) - 1);
-    
-    main_program(argc, argv);
     
     print_str("\nEnvironment:\n");
     if (!envp || !envp[0]) {
@@ -391,16 +480,21 @@ void _start(int argc, char **argv, char **envp) {
     } else {
         for (int i = 0; envp[i]; i++) {
             print_str("  envp[");
+            print_str("INSIDE ");
             print_int(i);
             print_str("] = ");
             print_str(envp[i]);
             print_str("\n");
         }
     }
+    main_program(argc, argv);
     
+    
+    
+    test_console_sys_write();
     sys_fuck_you();
     print_str("\nDone.\n");
 }
 
 // Compile with:
-// gcc -nostdlib -nodefaultlibs -fno-stack-protector --save-temps -fPIC -fPIE -Wl,-e,_start -o test_add hello.c
+// gcc -nostdlib -nodefaultlibs  --save-temps -fPIC -fPIE -Wl,-e,_start -o test_add hello.c

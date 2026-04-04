@@ -47,6 +47,7 @@
 
 
 
+
 #define FILE_NAME "Kernel Entry (/main.c)"
 #define CODE_QUALITY "A"
 #define FILE_VERSION "2.0"
@@ -280,8 +281,9 @@ void kmain(void) {
     phys_alloc_test();
     vmm_test();
     initPML4();
-
     
+
+
     printf("Memory OK\n");
 
     /* ========== GDT / IDT / PIC ========== */
@@ -371,6 +373,7 @@ void kmain(void) {
     uint64_t written = sys_print_write(1, test_msg, strlen(test_msg));
     printf("sys_write returned: %ld\n", written);
 
+    mmap_init();
     printf("=== Syscall Test Complete YAY ===\n\n");
 
 
@@ -412,7 +415,6 @@ void kmain(void) {
      printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
     printf("Type 'help' for commands\n\n");
 
-     test_mmap_basic();
     /* ========== ELF Loader Test ========== */
     printf("\n=== ELF Loader Test ===\n");
 
@@ -515,13 +517,16 @@ void kmain(void) {
     serial_io_printf("=== PIPE TEST END ===\n");
     fd_test_complete();
 
+     mmap_test_complete();
     serial_io_printf("=====Beginning le so test====\n");
     so_test_run();
 
     serial_io_printf("\n\n");
     test_sbrk();
     test_brk();
-
+    
+    
+   
     
 
 

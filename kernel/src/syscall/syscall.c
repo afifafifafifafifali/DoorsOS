@@ -7,12 +7,13 @@
 #include "../so_loader.h"
 #include "../interrupts/fd.h"
 #include "../interrupts/pipe.h"
-#include "../mmap.h"
+
 #include "../mem/heap.h"
 #include "../fs/fat32.h"
 #include "../libs/string.h"
 #include "../elf.h"
 #include "../vmm.h"
+#include "../mmap.h"
 
 
 static  int task_errno = 0;
@@ -242,47 +243,6 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
         
        
         
-        case SYS_MMAP: {
-            
-            void* addr = (void*)arg1;
-            size_t length = (size_t)arg2;
-            int prot = (int)arg3;
-            int flags = (int)arg4;
-            int fd = (int)arg5;
-            off_t offset = (off_t)arg6;
-            
-            if (flags & MAP_ANONYMOUS) {
-                
-                void* result = kmmap(length, prot, flags);
-                if (!result) {
-                    ret = set_errno_and_return(ENOMEM);
-                } else {
-                    ret = (uint64_t)result;
-                }
-            } else if (fd >= 0) {
-                
-                void* result = fd_mmap(fd, addr, length, prot, flags, offset);
-                if (result == MAP_FAILED) {
-                    ret = set_errno_and_return(ENOMEM);
-                } else {
-                    ret = (uint64_t)result;
-                }
-            } else {
-                ret = set_errno_and_return(EINVAL);
-            }
-            break;
-        }
-        
-        case SYS_MUNMAP: {
-            
-            void* addr = (void*)arg1;
-            size_t length = (size_t)arg2;
-            
-            kmunmap(addr, length);
-            ret = 0;
-            break;
-        }
-        
         case SYS_BRK: {
             
             void* new_brk = (void*)arg1;
@@ -424,7 +384,7 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
         }
         
         case SYS_FUCK_YOU: {
-            
+
             serial_io_printf("[sysfuckyou] arg1: %ld ", arg1);
             serial_io_printf("[sysfuckyou] arg2: %ld ", arg2);
             serial_io_printf("[sysfuckyou] arg3: %ld ", arg3);
@@ -432,6 +392,60 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             serial_io_printf("[sysfuckyou] arg5: %ld ", arg5);
             serial_io_printf("[sysfuckyou] arg6: %ld \n", arg6);
             ret = 1;
+            break;
+        }
+
+        /* ------------------------------------------------------------------
+         * Memory mapping syscalls
+         * ------------------------------------------------------------------*/
+        case SYS_MMAP: {
+            void *addr   = (void *)arg1;
+            size_t len   = (size_t)arg2;
+            int prot     = (int)arg3;
+            int flags    = (int)arg4;
+            int fd       = (int)arg5;
+            size_t off   = (size_t)arg6;
+
+            void *map = mmap(addr, len, prot, flags, fd, off);
+            if (map == MAP_FAILED) {
+                ret = set_errno_and_return(ENOMEM);
+            } else {
+                ret = (uint64_t)map;
+            }
+            break;
+        }
+
+        case SYS_MUNMAP: {
+            void *addr = (void *)arg1;
+            size_t len = (size_t)arg2;
+
+            ret = munmap(addr, len);
+            if (ret < 0) {
+                ret = set_errno_and_return(EINVAL);
+            }
+            break;
+        }
+
+        case SYS_MSYNC: {
+            void *addr = (void *)arg1;
+            size_t len = (size_t)arg2;
+
+            ret = msync(addr, len);
+            if (ret < 0) {
+                ret = set_errno_and_return(EINVAL);
+            }
+            break;
+        }
+
+        case SYS_MPROTECT: {
+            void *addr = (void *)arg1;
+            size_t len = (size_t)arg2;
+            int prot   = (int)arg3;
+
+            ret = mprotect(addr, len, prot);
+            if (ret < 0) {
+                ret = set_errno_and_return(EACCES);
+            }
             break;
         }
         
@@ -455,8 +469,6 @@ void syscall_init(void) {
     // Initialize fd system
     fd_init();
     
-    // Initialize mmap system
-    mmap_init();
     
     serial_io_printf("[SYSCALL] FD and MMAP subsystems ready\n");
 }

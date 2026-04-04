@@ -168,7 +168,10 @@ static elf_error_t elf64_apply_relocation(elf64_t *elf, struct elf64_rela *rela,
             *target32 = (uint32_t)(sym_val + rela->addend);
             break;
         }
-
+        case R_X86_64_RELATIVE: {
+               *target = (uint64_t)elf->image + rela->addend;
+               break;
+        }
         case R_X86_64_PLT32: {
             int32_t *target32 = (int32_t *)target;
             *target32 = (int32_t)(sym_val + rela->addend - (uint64_t)target32);
@@ -334,6 +337,8 @@ elf_error_t elf64_load(const void *file, uint32_t file_size, elf64_program_t *pr
             return err;
         }
     }
+
+    
 
     serial_io_printf("ELF: Loaded at 0x%lx, entry 0x%lx, size %lu bytes\n",
                      prog->base, prog->entry, prog->size);

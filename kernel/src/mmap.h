@@ -1,111 +1,153 @@
 #ifndef MMAP_H
 #define MMAP_H
 
+/*
+ * mmap.h — POSIX-style memory mapping for doorsos
+ *
+ * Eager implementation: all pages are allocated and populated at mmap() time.
+ * No page faults. No lazy loading. Pages are wired immediately.
+ *
+ * Supports:
+ *   MAP_ANONYMOUS  — zero-filled pages, not backed by any file
+ *   MAP_PRIVATE    — file-backed, copy-on-mmap (COW at map time, not fault time)
+ *   MAP_SHARED     — file-backed, writes go back to fd buffer (msync flushes to FAT32)
+ *   MAP_FIXED      — use addr hint exactly (no alignment rounding of the hint)
+ *
+ * Integration points:
+ *   - Physical memory : malloc() / free()  (heap.h)
+ *   - Virtual wiring  : mapPage()          (paging.h)
+ *   - File I/O        : fd_read/seek/size  (fd.h)
+ *   - Unmap           : unmapPages()       (paging.h)
+ *   - Flush           : fd_flush()         (fd.h)
+ */
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
 
-// THIS IS MOSTLY CODE STOLEN FROM https://github.com/64/ByteOS and Managarm
-typedef uint64_t uacpi_size;
-typedef int64_t off_t;
+/* -----------------------------------------------------------------------
+ * PROT flags  (match POSIX values so userspace headers won't clash)
+ * -----------------------------------------------------------------------*/
+#define PROT_NONE   0x00   /* pages cannot be accessed              */
+#define PROT_READ   0x01   /* pages can be read                     */
+#define PROT_WRITE  0x02   /* pages can be written                  */
+#define PROT_EXEC   0x04   /* pages can be executed                 */
 
-// Page size
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4096
-#endif
+/* -----------------------------------------------------------------------
+ * MAP flags
+ * -----------------------------------------------------------------------*/
+#define MAP_SHARED      0x01   /* share changes (msync writes back)     */
+#define MAP_PRIVATE     0x02   /* private copy, changes not written back */
+#define MAP_ANONYMOUS   0x20   /* not backed by a file, fd must be -1   */
+#define MAP_ANON        MAP_ANONYMOUS
+#define MAP_FIXED       0x10   /* place mapping at exact addr           */
 
-// Protection flags
-#define PROT_NONE   0x0
-#define PROT_READ   0x1
-#define PROT_WRITE  0x2
-#define PROT_EXEC   0x4
+/* -----------------------------------------------------------------------
+ * Sentinel for failure (like (void*)-1 on Linux)
+ * -----------------------------------------------------------------------*/
+#define MAP_FAILED  ((void *)(-1ULL))
 
-// Mapping flags
-#define MAP_PRIVATE     0x0
-#define MAP_SHARED      0x1
-#define MAP_ANONYMOUS   0x20
-#define MAP_FIXED       0x10
-#define MAP_POPULATE    0x80
+/* -----------------------------------------------------------------------
+ * fd value for anonymous mappings
+ * -----------------------------------------------------------------------*/
+#define MMAP_ANON_FD   (-1)
 
-// Return value for failed mmap
-#define MAP_FAILED  ((void*)-1)
+/* -----------------------------------------------------------------------
+ * Internal: one entry in the global mapping table
+ * -----------------------------------------------------------------------*/
+#define MMAP_MAX_MAPPINGS   256
+#define MMAP_PAGE_SIZE      0x1000   /* 4 KiB */
 
-// msync flags
-#define MS_ASYNC    0x1
-#define MS_SYNC     0x4
-#define MS_INVALIDATE 0x2
-
-// Mapped region information
 typedef struct {
-    void* addr;         // Mapping address
-    size_t length;      // Length in bytes
-    int prot;           // Protection flags
-    int flags;          // Mapping flags
-    bool file_backed;   // Is this a file-backed mapping
-    uint32_t file_size; // Original file size (for file-backed)
-} mmap_info_t;
+    bool        used;
 
-// Initialize mmap subsystem
+    uintptr_t   virt_addr;    /* base virtual address of the mapping    */
+    uintptr_t   phys_addr;    /* physical address of first page         */
+    uintptr_t  *phys_pages;   /* malloc'd array of per-page phys addrs  */
+    uintptr_t   backing_virt; /* HHDM alias of page 0 (for msync)       */
+    uintptr_t   backing_raw;  /* unused (kept for compat)               */
+    size_t      length;       /* mapping length in bytes (page-aligned) */
+    size_t      page_count;   /* number of 4 KiB pages                  */
+
+    int         prot;         /* PROT_* flags                           */
+    int         flags;        /* MAP_* flags                            */
+
+
+
+    /* File-backed fields (ignored for MAP_ANONYMOUS) */
+    int         fd;           /* file descriptor (-1 for anon)          */
+    size_t      file_offset;  /* byte offset into the file              */
+    size_t      file_length;  /* how many file bytes were mapped        */
+} mmap_region_t;
+
+/* -----------------------------------------------------------------------
+ * Public API
+ * -----------------------------------------------------------------------*/
+
+/*
+ * mmap_init()
+ *   Must be called once during kernel init before any mmap() call.
+ */
 void mmap_init(void);
 
-// Allocate anonymous memory mapping
-// Returns: Virtual address of mapping, or NULL on failure
-void* kmmap(size_t length, int prot, int flags);
+/*
+ * mmap()
+ *   Create a new memory mapping.
+ *
+ *   addr   - hint for virtual address (0 = let allocator choose)
+ *   length - number of bytes to map (rounded up to page boundary)
+ *   prot   - PROT_READ | PROT_WRITE | PROT_EXEC | PROT_NONE
+ *   flags  - MAP_SHARED | MAP_PRIVATE | MAP_ANONYMOUS [| MAP_FIXED]
+ *   fd     - open file descriptor, or -1 for MAP_ANONYMOUS
+ *   offset - byte offset into the file (must be page-aligned)
+ *
+ *   Returns: virtual address of mapping, or MAP_FAILED on error.
+ */
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, size_t offset);
 
-// Unmap memory region
-void kmunmap(void* addr, size_t length);
+/*
+ * munmap()
+ *   Remove a mapping created by mmap().
+ *   addr + length must exactly match a previously returned mapping.
+ *
+ *   Returns 0 on success, -1 on error.
+ */
+int munmap(void *addr, size_t length);
 
-// Map a file into memory
-// Parameters:
-//   filename  - Path to the file (e.g., "/boot/file.bin")
-//   prot      - Protection flags (PROT_READ, PROT_WRITE, etc.)
-//   flags     - Mapping flags (MAP_PRIVATE, MAP_SHARED)
-//   out_size  - Optional: receives the actual file size
-// Returns: Virtual address of mapping, or NULL on failure
-void* kmmap_file(const char* filename, int prot, int flags, uint32_t* out_size);
+/*
+ * msync()
+ *   For MAP_SHARED file-backed mappings: copy the mapped memory back into
+ *   the fd buffer and flush it to FAT32.
+ *   For MAP_PRIVATE or MAP_ANONYMOUS: no-op (returns 0).
+ *
+ *   Returns 0 on success, -1 on error.
+ */
+int msync(void *addr, size_t length);
 
-// Map a file descriptor into memory (Linux-style mmap)
-// Parameters:
-//   fd        - File descriptor to map
-//   addr      - Hint for address (NULL for kernel choice)
-//   length    - Length to map
-//   prot      - Protection flags
-//   flags     - Mapping flags (MAP_SHARED, MAP_PRIVATE)
-//   offset    - Offset within file
-// Returns: Mapped address, or MAP_FAILED on error
-void* fd_mmap(int fd, void* addr, size_t length, int prot, int flags, off_t offset);
+/*
+ * mprotect()
+ *   Change the protection flags on an existing mapping.
+ *   Remaps each page with the new PAGE_* attributes.
+ *
+ *   Returns 0 on success, -1 on error.
+ */
+int mprotect(void *addr, size_t length, int prot);
 
-// Synchronize mapped region with underlying file (msync)
-// Parameters:
-//   addr      - Start address of mapped region
-//   length    - Length to sync
-//   flags     - Sync flags (MS_SYNC, MS_ASYNC, MS_INVALIDATE)
-// Returns: 0 on success, -1 on failure
-int fd_msync(void* addr, size_t length, int flags);
+/*
+ * mmap_fork_copy()
+ *   Called by fork: eagerly duplicates every mapping owned by the parent
+ *   into fresh physical pages.  The child's mappings start as independent
+ *   copies regardless of MAP_SHARED / MAP_PRIVATE — matching your "eager,
+ *   no-fault" philosophy.
+ *
+ *   Returns 0 on success, -1 if any allocation fails.
+ */
+int mmap_fork_copy(void);
 
-// Get the actual file size from a file-backed mapping
-// Returns: File size in bytes, or 0 if not a file-backed mapping
-uint32_t kmmap_get_file_size(void* addr);
+/*
+ * mmap_dump()
+ *   Debug: print all active mappings to serial.
+ */
+void mmap_dump(void);
 
-// Read entire file into newly allocated memory
-// This is a convenience wrapper around kmmap_file
-// Parameters:
-//   filename  - Path to the file
-//   out_size  - Receives the file size
-// Returns: Pointer to file content, or NULL on failure
-// Note: Caller must free using kfree_file() when done
-void* kread_file(const char* filename, uint32_t* out_size);
-
-// Free memory allocated by kread_file or kmmap_file
-// Parameters:
-//   addr      - Address returned by kmmap_file or kread_file
-void kfree_file(void* addr);
-
-// Get information about a mapped region
-// Returns: true if region found, false otherwise
-bool kmmap_get_info(void* addr, mmap_info_t* info);
-
-// Test function
-void test_mmap_basic(void);
-
-#endif // MMAP_H
+#endif /* MMAP_H */

@@ -21,6 +21,10 @@ static FreeBlock* free_list = NULL;
 uint8_t* program_break = NULL;
 
 
+void* phys_to_virt(uint64_t phys_addr) {
+    return (void*)(hhdm_request.response->offset + phys_addr);
+}
+
 
 void allocator_init(void) {
     for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {
