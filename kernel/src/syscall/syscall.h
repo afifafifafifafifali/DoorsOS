@@ -143,6 +143,36 @@ struct timespec {
 #define STDOUT_FILENO       1
 #define STDERR_FILENO       2
 
+/* Special DoorsOS pseudo-FDs (returned by open on fake paths) */
+#define FD_KBIO_EVENTS      3
+#define FD_FRAMEBUFFER      4
+#define FD_MOUSE_EVENTS     5
+
+/* Framebuffer info returned via ioctl() */
+#pragma pack(push, 1)
+struct fb_info {
+    uint64_t addr;
+    uint64_t width;
+    uint64_t height;
+    uint64_t pitch;
+    uint16_t bpp;
+    uint8_t  red_mask_size;
+    uint8_t  red_mask_shift;
+    uint8_t  green_mask_size;
+    uint8_t  green_mask_shift;
+    uint8_t  blue_mask_size;
+    uint8_t  blue_mask_shift;
+};
+#pragma pack(pop)
+
+/* ioctl commands */
+#define FBIOGET_INFO     0x4601  /* get fb_info struct */
+#define KBIO_GET_MODE    0x4B01  /* get kbio mode */
+#define KBIO_SET_MODE    0x4B02  /* set kbio mode */
+
+/* ioctl syscall number (standard x86_64 Linux) */
+#define SYS_IOCTL        16
+
 // Exit status macros
 #define WEXITSTATUS(status) (((status) >> 8) & 0xFF)
 #define WTERMSIG(status)    ((status) & 0x7F)
@@ -299,6 +329,24 @@ static inline int64_t sys_msync(void* addr, size_t length) {
 
 static inline int64_t sys_mprotect(void* addr, size_t length, int prot) {
     return syscall3(SYS_MPROTECT, (uint64_t)addr, length, prot);
+}
+
+/* ioctl */
+static inline int64_t sys_ioctl(int fd, uint64_t req, uint64_t arg) {
+    return syscall3(SYS_IOCTL, (uint64_t)fd, req, arg);
+}
+
+/* Fake VFS convenience wrappers */
+static inline int sys_open_kbio(void) {
+    return sys_open("/dev/kbio", O_RDONLY, 0);
+}
+
+static inline int sys_open_framebuffer(void) {
+    return sys_open("/dev/fb0", O_RDWR, 0);
+}
+
+static inline int sys_open_mouse(void) {
+    return sys_open("/dev/mouse", O_RDONLY, 0);
 }
 
 

@@ -428,7 +428,7 @@ void kmain(void) {
         serial_io_printf("Size: %lu bytes\n", test_prog.size);
 
         /* Allocate a stack for the ELF program (8KB) */
-        uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(2);
+        uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(32);
         if (!elf_stack) {
             serial_io_printf("Failed to allocate ELF stack!\n");
         } else {

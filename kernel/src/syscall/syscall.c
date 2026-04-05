@@ -2,11 +2,13 @@
 #include "../gfx/printf.h"
 #include "../tasks/task.h"
 #include "../ps2/kbio.h"
+#include "../ps2/mouse.h"
 #include "../mem/paging.h"
 #include "../gfx/serial_io.h"
 #include "../so_loader.h"
 #include "../interrupts/fd.h"
 #include "../interrupts/pipe.h"
+#include "../bootloader.h"
 
 #include "../mem/heap.h"
 #include "../fs/fat32.h"
@@ -32,36 +34,89 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
         
         
         case SYS_READ: {
-            
+
             int fd = (int)arg1;
             void* buf = (void*)arg2;
             size_t count = (size_t)arg3;
-            
+
             if (!buf || count == 0) {
                 ret = 0;
                 break;
             }
-            
+
+            /* Fake VFS: kbio events */
+            if (fd == FD_KBIO_EVENTS) {
+                if (count < sizeof(kbio_event_t)) {
+                    ret = set_errno_and_return(EINVAL);
+                    break;
+                }
+                kbio_event_t evt;
+                if (!kbio_get_event(&evt)) {
+                    ret = -EAGAIN;
+                    break;
+                }
+                memcpy(buf, &evt, sizeof(kbio_event_t));
+                ret = sizeof(kbio_event_t);
+                break;
+            }
+
+            /* Fake VFS: mouse events */
+            if (fd == FD_MOUSE_EVENTS) {
+                if (count < sizeof(mouse_state_t)) {
+                    ret = set_errno_and_return(EINVAL);
+                    break;
+                }
+                /* Snapshot current state, clear edge flags */
+                mouse_state_t snap = mstate;
+                /* Clear edge-detection flags so next read sees new edges */
+                mstate.left_pressed   = 0;
+                mstate.left_released  = 0;
+                mstate.right_pressed  = 0;
+                mstate.right_released = 0;
+                mstate.mid_pressed    = 0;
+                mstate.mid_released   = 0;
+                memcpy(buf, &snap, sizeof(mouse_state_t));
+                ret = sizeof(mouse_state_t);
+                break;
+            }
+
+            /* Fake VFS: framebuffer — read returns pixel bytes (linear buffer) */
+            if (fd == FD_FRAMEBUFFER) {
+                if (!framebuffer_request.response ||
+                    framebuffer_request.response->framebuffer_count < 1) {
+                    ret = set_errno_and_return(ENODEV);
+                    break;
+                }
+                struct limine_framebuffer *fb =
+                    framebuffer_request.response->framebuffers[0];
+                uint64_t fb_size = fb->height * fb->pitch;
+                if (count > fb_size)
+                    count = fb_size;
+                memcpy(buf, fb->address, count);
+                ret = count;
+                break;
+            }
+
             if (fd == STDIN_FILENO) {
-              
+
                 char* char_buf = (char*)buf;
                 size_t bytes_read = 0;
-                
+
                 while (bytes_read < count) {
                     char c = ps2_kbio_getchar_nb();
-                    if (c == 0) break; 
+                    if (c == 0) break;
                     char_buf[bytes_read++] = c;
                 }
-                
+
                 if (bytes_read == 0) {
-                    ret = -EAGAIN;  
+                    ret = -EAGAIN;
                 } else {
                     ret = bytes_read;
                 }
                 break;
             }
-            
-           
+
+
             ret = fd_read(fd, buf, count);
             if (ret < 0) {
                 ret = set_errno_and_return(EBADF);
@@ -70,25 +125,42 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
         }
         
         case SYS_WRITE: {
-            
+
             int fd = (int)arg1;
             const void* buf = (const void*)arg2;
             size_t count = (size_t)arg3;
-            
+
             if (!buf || count == 0) {
                 ret = 0;
                 break;
             }
-            
+
+            /* Fake VFS: framebuffer — write pixel bytes */
+            if (fd == FD_FRAMEBUFFER) {
+                if (!framebuffer_request.response ||
+                    framebuffer_request.response->framebuffer_count < 1) {
+                    ret = set_errno_and_return(ENODEV);
+                    break;
+                }
+                struct limine_framebuffer *fb =
+                    framebuffer_request.response->framebuffers[0];
+                uint64_t fb_size = fb->height * fb->pitch;
+                if (count > fb_size)
+                    count = fb_size;
+                memcpy(fb->address, (void*)buf, count);
+                ret = count;
+                break;
+            }
+
             if (fd == STDOUT_FILENO || fd == STDERR_FILENO) {
                 const char* str = (const char*)buf;
                 for (size_t i = 0; i < count; i++) {
-                    serial_io_putchar(str[i]);
+                    _putchar(str[i]);
                 }
                 ret = count;
                 break;
             }
-            
+
             ret = fd_write(fd, buf, count);
             if (ret < 0) {
                 ret = set_errno_and_return(EBADF);
@@ -97,28 +169,55 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
         }
         
         case SYS_OPEN: {
-            
+
             const char* path = (const char*)arg1;
             int flags = (int)arg2;
-            int mode = (int)arg3;  
-            
+            int mode = (int)arg3;
+
             if (!path) {
                 ret = set_errno_and_return(EFAULT);
                 break;
             }
-            
+
+            /* Fake VFS — intercept special paths */
+            if (strncmp(path, "/dev/fb0", 9) == 0) {
+                /* Verify framebuffer exists */
+                if (!framebuffer_request.response ||
+                    framebuffer_request.response->framebuffer_count < 1) {
+                    ret = set_errno_and_return(ENODEV);
+                    break;
+                }
+                ret = FD_FRAMEBUFFER;
+                break;
+            }
+            if (strncmp(path, "/dev/kbio", 10) == 0) {
+                ret = FD_KBIO_EVENTS;
+                break;
+            }
+            if (strncmp(path, "/dev/mouse", 11) == 0) {
+                ret = FD_MOUSE_EVENTS;
+                break;
+            }
+
             ret = fd_open(path, flags);
             if (ret < 0) {
-                
+
                 ret = set_errno_and_return(ENOENT);
             }
             break;
         }
         
         case SYS_CLOSE: {
-          
+
             int fd = (int)arg1;
-            
+
+            /* Fake VFS FDs — nothing to close */
+            if (fd == FD_KBIO_EVENTS || fd == FD_FRAMEBUFFER ||
+                fd == FD_MOUSE_EVENTS) {
+                ret = 0;
+                break;
+            }
+
             ret = fd_close(fd);
             if (ret < 0) {
                 ret = set_errno_and_return(EBADF);
@@ -188,7 +287,7 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
                            prog.base, prog.entry);
             
             
-            uint8_t* elf_stack = (uint8_t*)vmm_alloc_pages(2);  // 2 pages = 8KB
+            uint8_t* elf_stack = (uint8_t*)vmm_alloc_pages(32);  // 2 pages = 8KB
             uint64_t stack_top = (uint64_t)elf_stack + 0x2000;
             
             serial_io_printf("[SYSCALL execve] Stack at 0x%lx (top: 0x%lx)\n",
@@ -446,6 +545,65 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             if (ret < 0) {
                 ret = set_errno_and_return(EACCES);
             }
+            break;
+        }
+
+        /* ------------------------------------------------------------------
+         * ioctl — fake VFS device control
+         * ------------------------------------------------------------------*/
+        case SYS_IOCTL: {
+        int fd  = (int)arg1;
+        uint64_t req = (uint64_t)arg2;
+        uint64_t arg = (uint64_t)arg3;
+
+        serial_io_printf("[IOCTL ENTRY] fd=%d req=0x%lx arg=0x%lx\n", fd, req, arg);
+        serial_io_printf("[IOCTL] framebuffer_request.response = %p\n", framebuffer_request.response);
+    
+    /* Fake VFS: framebuffer ioctl — FBIOGET_INFO */
+    if (fd == FD_FRAMEBUFFER && req == FBIOGET_INFO) {
+        serial_io_printf("[IOCTL] Matched FD_FRAMEBUFFER && FBIOGET_INFO\n");
+        
+        if (!framebuffer_request.response ||
+            framebuffer_request.response->framebuffer_count < 1) {
+            serial_io_printf("[IOCTL] No framebuffer available\n");
+            ret = set_errno_and_return(ENODEV);
+            break;
+        }
+        
+        serial_io_printf("[IOCTL] Getting framebuffer pointer...\n");
+        struct limine_framebuffer *fb =
+            framebuffer_request.response->framebuffers[0];
+        serial_io_printf("[IOCTL] fb = %p\n", fb);
+        serial_io_printf("[IOCTL] fb->address = %p\n", fb->address);
+        
+        serial_io_printf("[IOCTL] Building info struct...\n");
+        struct fb_info info;
+        info.addr             = (uint64_t)fb->address;
+        serial_io_printf("[IOCTL] Set addr\n");
+        info.width            = fb->width;
+        info.height           = fb->height;
+        info.pitch            = fb->pitch;
+        info.bpp              = fb->bpp;
+        info.red_mask_size    = fb->red_mask_size;
+        info.red_mask_shift   = fb->red_mask_shift;
+        info.green_mask_size  = fb->green_mask_size;
+        info.green_mask_shift = fb->green_mask_shift;
+        info.blue_mask_size   = fb->blue_mask_size;
+        info.blue_mask_shift  = fb->blue_mask_shift;
+
+        serial_io_printf("[IOCTL] Info struct ready, arg pointer = 0x%lx\n", arg);
+        serial_io_printf("[IOCTL] About to memcpy %zu bytes\n", sizeof(info));
+        
+        if (arg)
+            memcpy((void*)arg, &info, sizeof(info));
+            
+        serial_io_printf("[IOCTL] memcpy complete\n");
+        ret = 0;
+        break;
+    }
+
+            serial_io_printf("[SYSCALL ioctl] fd=%d req=0x%lx unhandled\n", fd, req);
+            ret = set_errno_and_return(ENOTTY);
             break;
         }
         

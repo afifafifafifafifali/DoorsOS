@@ -630,7 +630,7 @@ void shell_run(void) {
 
                 if(err == ELF_OK){
                     serial_io_printf("Allcing stack\n");
-                    uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(2);
+                    uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(32);
                     uint64_t stack_top = (uint64_t)elf_stack + 0x2000;
 
 
