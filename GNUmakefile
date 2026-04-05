@@ -142,12 +142,12 @@ $(IMAGE_NAME).hdd:  kernel
 		PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00 -m 1; \
 		./limine/limine bios-install $(IMAGE_NAME).hdd; \
 		mformat -F -v DOORSOS -i $(IMAGE_NAME).hdd@@1M ::; \
-		mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine; \
+		mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine ::/lib; \
 	fi
 	mcopy -i $(IMAGE_NAME).hdd@@1M kernel/bin/kernel ::/boot
 	mcopy -i $(IMAGE_NAME).hdd@@1M test.txt ::/
 	mcopy -i $(IMAGE_NAME).hdd@@1M test_add ::/
-	mcopy -i $(IMAGE_NAME).hdd@@1M test_lib.so ::/
+	mcopy -i $(IMAGE_NAME).hdd@@1M test_lib.so ::/lib/
 	mcopy -i $(IMAGE_NAME).hdd@@1M capitalism.csv ::/govdb.csv
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT
