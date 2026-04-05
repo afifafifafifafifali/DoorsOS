@@ -14,6 +14,7 @@
 #include "../fs/fat32.h"
 #include "../libs/string.h"
 #include "../elf.h"
+#include "../auxv.h"
 #include "../vmm.h"
 #include "../mmap.h"
 
@@ -300,23 +301,39 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             }
             
             serial_io_printf("[SYSCALL execve] argc=%lu\n", argc);
-            
-            // Execute ELF - call entry point with argc, argv, envp
-            void (*entry)(uint64_t, char**, char**) = (void (*)(uint64_t, char**, char**))prog.entry;
-            
-            
+
+            /* Build auxiliary vector */
+            struct elf64_hdr *ehdr = prog.elf.hdr;
+            auxv_t auxv[] = {
+                { AT_PAGESZ,  4096 },
+                { AT_CLKTCK,  100 },
+                { AT_PHDR,    prog.base + ehdr->phoff },
+                { AT_PHENT,   ehdr->phdr_size },
+                { AT_PHNUM,   ehdr->ph_num },
+                { AT_ENTRY,   prog.entry },
+                { AT_BASE,    prog.base },
+                { AT_NULL,    0 }
+            };
+
+            serial_io_printf("[SYSCALL execve] auxv at %p\n", auxv);
+
+            // Execute ELF - call entry point with argc, argv, envp, auxv
+            void (*entry)(uint64_t, char**, char**, auxv_t*) = (void (*)(uint64_t, char**, char**, auxv_t*))prog.entry;
+
+
             runningTask->regs.rsp = stack_top;
             runningTask->regs.rip = prog.entry;
-            
-            
+
+
             asm volatile(
                 "mov %0, %%rdi\n\t"
-                "mov %1, %%rsi\n\t"  
+                "mov %1, %%rsi\n\t"
                 "mov %2, %%rdx\n\t"
-                "call *%3\n\t"
+                "mov %3, %%rcx\n\t"
+                "call *%4\n\t"
                 :
-                : "r"(argc), "r"(argv), "r"(envp), "r"(entry)
-                : "rdi", "rsi", "rdx", "rax", "rcx", "memory"
+                : "r"(argc), "r"(argv), "r"(envp), "r"(auxv), "r"(entry)
+                : "rdi", "rsi", "rdx", "rcx", "rax", "memory"
             );
             
             

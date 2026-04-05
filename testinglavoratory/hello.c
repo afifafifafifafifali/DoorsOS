@@ -48,6 +48,31 @@
 #define FD_FRAMEBUFFER    4
 #define FD_MOUSE_EVENTS   5
 
+/* Auxiliary vector types */
+#define AT_NULL   0
+#define AT_IGNORE 1
+#define AT_EXECFD 2
+#define AT_PHDR   3
+#define AT_PHENT  4
+#define AT_PHNUM  5
+#define AT_PAGESZ 6
+#define AT_BASE   7
+#define AT_FLAGS  8
+#define AT_ENTRY  9
+#define AT_NOTELF 10
+#define AT_UID    11
+#define AT_EUID   12
+#define AT_GID    13
+#define AT_EGID   14
+#define AT_CLKTCK 17
+#define AT_RANDOM 25
+#define AT_EXECFN 31
+
+typedef struct {
+    uint64_t a_type;
+    uint64_t a_un;  /* value or pointer */
+} auxv_t;
+
 /* ioctl commands */
 #define FBIOGET_INFO      0x4601
 
@@ -193,6 +218,78 @@ static void print_str(const char *s) {
     while(*p) p++;
     sys_print_write(1, s, p - s);
 }
+
+static void print_ulong(uint64_t v);
+static void print_int(int num);
+
+static void print_hex(uint64_t v) {
+    char buf[19] = "0x";
+    static const char hex[] = "0123456789abcdef";
+    for (int i = 0; i < 16; i++) {
+        buf[2 + i] = hex[(v >> (60 - i * 4)) & 0xf];
+    }
+    buf[18] = '\0';
+    sys_print_write(1, buf, 18);
+}
+
+static const char* auxv_type_to_str(uint64_t type) {
+    switch (type) {
+        case AT_NULL:   return "AT_NULL";
+        case AT_IGNORE: return "AT_IGNORE";
+        case AT_EXECFD: return "AT_EXECFD";
+        case AT_PHDR:   return "AT_PHDR";
+        case AT_PHENT:  return "AT_PHENT";
+        case AT_PHNUM:  return "AT_PHNUM";
+        case AT_PAGESZ: return "AT_PAGESZ";
+        case AT_BASE:   return "AT_BASE";
+        case AT_FLAGS:  return "AT_FLAGS";
+        case AT_ENTRY:  return "AT_ENTRY";
+        case AT_NOTELF: return "AT_NOTELF";
+        case AT_UID:    return "AT_UID";
+        case AT_EUID:   return "AT_EUID";
+        case AT_GID:    return "AT_GID";
+        case AT_EGID:   return "AT_EGID";
+        case AT_CLKTCK: return "AT_CLKTCK";
+        case AT_RANDOM: return "AT_RANDOM";
+        case AT_EXECFN: return "AT_EXECFN";
+        default:        return "AT_UNKNOWN";
+    }
+}
+
+static void print_auxv(auxv_t *auxv) {
+    print_str("\nAuxiliary Vector:\n");
+    if (!auxv) {
+        print_str("  <none>\n");
+        return;
+    }
+    
+    for (int i = 0; auxv[i].a_type != AT_NULL; i++) {
+        print_str("  ");
+        print_str(auxv_type_to_str(auxv[i].a_type));
+        print_str(" (");
+        print_int(auxv[i].a_type);
+        print_str(") = ");
+        print_ulong(auxv[i].a_un);
+        print_str("\n");
+    }
+    print_str("  AT_NULL (end of vector)\n");
+}
+
+static void print_ulong(uint64_t v) {
+    char buf[22];
+    int i = sizeof(buf) - 1;
+    buf[i] = '\0';
+    if (v == 0) {
+        buf[--i] = '0';
+    } else {
+        while (v > 0) {
+            buf[--i] = (v % 10) + '0';
+            v /= 10;
+        }
+    }
+    sys_print_write(1, &buf[i], sizeof(buf) - 1 - i);
+}
+
 static void print_int(int num) {
     if (num == 0) { sys_print_write(1, "0", 1); return; }
     char buf[20]; int i = 0, neg = 0;
@@ -205,17 +302,6 @@ static void print_int(int num) {
     sys_print_write(1, buf, i);
 }
 static void print_long(int64_t num) { print_int((int)num); }
-static void print_hex(uint64_t num) {
-    if (num == 0) { sys_print_write(1, "0x0", 3); return; }
-    char buf[20]; int i = 0;
-    while (num > 0) {
-        int d = num % 16;
-        buf[i++] = (d < 10) ? ('0' + d) : ('a' + d - 10);
-        num /= 16;
-    }
-    sys_print_write(1, "0x", 2);
-    for (int j = i - 1; j >= 0; j--) { char c[1] = {buf[j]}; sys_print_write(1, c, 1); }
-}
 
 // ============================================================
 // Fake VFS tests
@@ -437,9 +523,14 @@ void main_program(int argc, char **argv) {
     print_str("\n=== All Tests Complete ===\n");
 }
 
-void _start(int argc, char **argv, char **envp) {
+void _start(int argc, char **argv, char **envp, auxv_t *auxv) {
     const char msg[] = "Hello, DoorsOS! Unix Syscall Test Edition!\n";
     sys_print_write(1, msg, sizeof(msg) - 1);
+
+    print_str("\nArguments:\n");
+    print_str("  argc = ");
+    print_int(argc);
+    print_str("\n");
 
     print_str("\nEnvironment:\n");
     if (!envp || !envp[0]) { print_str("  <none>\n"); }
@@ -448,6 +539,8 @@ void _start(int argc, char **argv, char **envp) {
             print_str("  envp["); print_int(i); print_str("] = "); print_str(envp[i]); print_str("\n");
         }
     }
+
+    print_auxv(auxv);
 
     main_program(argc, argv);
 

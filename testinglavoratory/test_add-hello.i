@@ -253,9 +253,14 @@ typedef struct {
 # 436 "/usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h" 3 4
 } max_align_t;
 # 3 "hello.c" 2
-# 58 "hello.c"
+# 71 "hello.c"
 
-# 58 "hello.c"
+# 71 "hello.c"
+typedef struct {
+    uint64_t a_type;
+    uint64_t a_un;
+} auxv_t;
+# 83 "hello.c"
 struct fb_info {
     uint64_t addr;
     uint64_t width;
@@ -268,7 +273,7 @@ struct fb_info {
     uint8_t green_mask_shift;
     uint8_t blue_mask_size;
     uint8_t blue_mask_shift;
-};
+} __attribute__((packed));
 
 struct kbio_event {
     uint8_t scancode;
@@ -394,6 +399,78 @@ static void print_str(const char *s) {
     while(*p) p++;
     sys_print_write(1, s, p - s);
 }
+
+static void print_ulong(uint64_t v);
+static void print_int(int num);
+
+static void print_hex(uint64_t v) {
+    char buf[19] = "0x";
+    static const char hex[] = "0123456789abcdef";
+    for (int i = 0; i < 16; i++) {
+        buf[2 + i] = hex[(v >> (60 - i * 4)) & 0xf];
+    }
+    buf[18] = '\0';
+    sys_print_write(1, buf, 18);
+}
+
+static const char* auxv_type_to_str(uint64_t type) {
+    switch (type) {
+        case 0: return "AT_NULL";
+        case 1: return "AT_IGNORE";
+        case 2: return "AT_EXECFD";
+        case 3: return "AT_PHDR";
+        case 4: return "AT_PHENT";
+        case 5: return "AT_PHNUM";
+        case 6: return "AT_PAGESZ";
+        case 7: return "AT_BASE";
+        case 8: return "AT_FLAGS";
+        case 9: return "AT_ENTRY";
+        case 10: return "AT_NOTELF";
+        case 11: return "AT_UID";
+        case 12: return "AT_EUID";
+        case 13: return "AT_GID";
+        case 14: return "AT_EGID";
+        case 17: return "AT_CLKTCK";
+        case 25: return "AT_RANDOM";
+        case 31: return "AT_EXECFN";
+        default: return "AT_UNKNOWN";
+    }
+}
+
+static void print_auxv(auxv_t *auxv) {
+    print_str("\nAuxiliary Vector:\n");
+    if (!auxv) {
+        print_str("  <none>\n");
+        return;
+    }
+
+    for (int i = 0; auxv[i].a_type != 0; i++) {
+        print_str("  ");
+        print_str(auxv_type_to_str(auxv[i].a_type));
+        print_str(" (");
+        print_int(auxv[i].a_type);
+        print_str(") = ");
+        print_ulong(auxv[i].a_un);
+        print_str("\n");
+    }
+    print_str("  AT_NULL (end of vector)\n");
+}
+
+static void print_ulong(uint64_t v) {
+    char buf[22];
+    int i = sizeof(buf) - 1;
+    buf[i] = '\0';
+    if (v == 0) {
+        buf[--i] = '0';
+    } else {
+        while (v > 0) {
+            buf[--i] = (v % 10) + '0';
+            v /= 10;
+        }
+    }
+    sys_print_write(1, &buf[i], sizeof(buf) - 1 - i);
+}
+
 static void print_int(int num) {
     if (num == 0) { sys_print_write(1, "0", 1); return; }
     char buf[20]; int i = 0, neg = 0;
@@ -406,17 +483,6 @@ static void print_int(int num) {
     sys_print_write(1, buf, i);
 }
 static void print_long(int64_t num) { print_int((int)num); }
-static void print_hex(uint64_t num) {
-    if (num == 0) { sys_print_write(1, "0x0", 3); return; }
-    char buf[20]; int i = 0;
-    while (num > 0) {
-        int d = num % 16;
-        buf[i++] = (d < 10) ? ('0' + d) : ('a' + d - 10);
-        num /= 16;
-    }
-    sys_print_write(1, "0x", 2);
-    for (int j = i - 1; j >= 0; j--) { char c[1] = {buf[j]}; sys_print_write(1, c, 1); }
-}
 
 
 
@@ -510,7 +576,7 @@ void test_kbio_events() {
         print_str("  OK: got event (");
         print_long(rd);
         print_str(" bytes)\n");
-        print_str("  scancode: 0x");
+        print_str("  scancode: ");
         print_hex(evt.scancode);
         print_str(" pressed: ");
         print_int(evt.pressed);
@@ -638,9 +704,14 @@ void main_program(int argc, char **argv) {
     print_str("\n=== All Tests Complete ===\n");
 }
 
-void _start(int argc, char **argv, char **envp) {
+void _start(int argc, char **argv, char **envp, auxv_t *auxv) {
     const char msg[] = "Hello, DoorsOS! Unix Syscall Test Edition!\n";
     sys_print_write(1, msg, sizeof(msg) - 1);
+
+    print_str("\nArguments:\n");
+    print_str("  argc = ");
+    print_int(argc);
+    print_str("\n");
 
     print_str("\nEnvironment:\n");
     if (!envp || !envp[0]) { print_str("  <none>\n"); }
@@ -649,6 +720,8 @@ void _start(int argc, char **argv, char **envp) {
             print_str("  envp["); print_int(i); print_str("] = "); print_str(envp[i]); print_str("\n");
         }
     }
+
+    print_auxv(auxv);
 
     main_program(argc, argv);
 
