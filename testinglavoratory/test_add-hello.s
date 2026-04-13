@@ -1989,7 +1989,6 @@ _start:
 	movl	%edi, -52(%rbp)
 	movq	%rsi, -64(%rbp)
 	movq	%rdx, -72(%rbp)
-	movq	%rcx, -80(%rbp)
 	movabsq	$4908972450905875784, %rax
 	movabsq	$2315223284149546863, %rdx
 	movq	%rax, -48(%rbp)
@@ -2068,9 +2067,6 @@ _start:
 	testq	%rax, %rax
 	jne	.L144
 .L142:
-	movq	-80(%rbp), %rax
-	movq	%rax, %rdi
-	call	print_auxv
 	movq	-64(%rbp), %rdx
 	movl	-52(%rbp), %eax
 	movq	%rdx, %rsi

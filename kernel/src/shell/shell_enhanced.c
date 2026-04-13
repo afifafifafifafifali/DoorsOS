@@ -15,7 +15,6 @@
 #include "../snake.h"
 #include "gui/colorama.h"
 #include "../elf.h"
-#include "../auxv.h"
 #include "gui/windows.h"
 #include "../tasks/task.h"
 #include "../syscall/syscall.h"
@@ -631,7 +630,7 @@ void shell_run(void) {
 
                 if(err == ELF_OK){
                     serial_io_printf("Allcing stack\n");
-                    uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(32);
+                    uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(2);
                     uint64_t stack_top = (uint64_t)elf_stack + 0x2000;
 
 
@@ -651,31 +650,17 @@ void shell_run(void) {
                     serial_io_printf("OBAMA #4\n");
                     uint64_t argc = 3;
 
-                    /* Build auxiliary vector */
-                    struct elf64_hdr *ehdr = test_prog.elf.hdr;
-                    auxv_t auxv[] = {
-                        { AT_PAGESZ,  4096 },
-                        { AT_CLKTCK,  100 },
-                        { AT_PHDR,    test_prog.base + ehdr->phoff },
-                        { AT_PHENT,   ehdr->phdr_size },
-                        { AT_PHNUM,   ehdr->ph_num },
-                        { AT_ENTRY,   test_prog.entry },
-                        { AT_BASE,    test_prog.base },
-                        { AT_NULL,    0 }
-                    };
-
                     serial_io_printf("Running ELF binary with syscall...\n");
-                    void (*entry)(uint64_t, char**, char**, auxv_t*) = test_prog.entry;
+                    void (*entry)(uint64_t, char**, char**) = test_prog.entry;
 
                     asm volatile(
                      "mov %0, %%rdi\n\t"
                     "mov %1, %%rsi\n\t"
                     "mov %2, %%rdx\n\t"
-                    "mov %3, %%rcx\n\t"
-                    "call *%4\n\t"
+                    "call *%3\n\t"
                     :
-                    : "r"(argc), "r"(argv), "r"(envp), "r"(auxv), "r"(entry)
-                    : "rdi", "rsi", "rdx", "rcx", "memory"
+                    : "r"(argc), "r"(argv), "r"(envp), "r"(entry)
+                    : "rdi", "rsi", "rdx", "memory"
                 );
 
                 elf64_unload(&test_prog);

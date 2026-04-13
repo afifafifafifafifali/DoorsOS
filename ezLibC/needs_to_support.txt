@@ -1,0 +1,26 @@
+These are the syscalls the ezLibC uses.
+
+1.    int64_t sys_gettimeofday(struct timeval* tv, struct timezone* tz)
+2.    int64_t sys_uname(struct utsname* buf)
+3.    int64_t sys_brk(void* addr)
+4.    int64_t sys_execve(const char* filename, char* const argv[], char* const envp[])
+5.    int64_t sys_getpid(void) 
+6.    int64_t sys_fork(void)
+7.    int64_t sys_exit(int status)
+8.    int64_t sys_link(const char* oldpath, const char* newpath) // hardlink
+9.    int64_t sys_stat(const char* path, struct stat* st)
+10.    int64_t sys_fstat(int fd, struct stat* st)
+11.    int64_t sys_open(const char* pathname, int flags, int mode);
+12.    int64_t sys_write(int fd, const void* buf, size_t count);
+13.    int64_t sys_read(int fd, void* buf, size_t count) 
+14.    int64_t sys_dup2(int oldfd, int newfd)
+15.    int64_t sys_dup(int oldfd) 
+16.    int64_t sys_lseek(int fd, off_t offset, int whence)
+17.    int64_t sys_pipe(int pipefd[2]) 
+18.    int64_t sys_ioctl(int fd, uint64_t req, uint64_t arg)
+19.    void* sys_mmap(void* addr, size_t length, int prot, int flags,
+                              int fd, size_t offset)
+20.    int64_t sys_munmap(void* addr, size_t length)
+21.  int64_t sys_close(int fd);
+22. int64_isatty(int fd);
+23. int64_t sys_msync(void* addr, size_t length);

@@ -10,6 +10,7 @@ typedef int64_t off_t;
 typedef int64_t pid_t;
 typedef int64_t ssize_t;
 typedef uint64_t size_t;
+typedef int64_t clock_t;
 
 
 struct utsname {
@@ -35,6 +36,29 @@ struct timespec {
     int64_t tv_nsec;
 };
 
+struct tms {
+    int64_t tms_utime;  /* user time */
+    int64_t tms_stime;  /* system time */
+    int64_t tms_cutime; /* user time of children */
+    int64_t tms_cstime; /* system time of children */
+};
+
+struct stat {
+    uint64_t st_dev;     /* ID of device containing file */
+    uint64_t st_ino;     /* inode number */
+    uint32_t st_mode;    /* protection */
+    uint32_t st_nlink;   /* number of hard links */
+    uint32_t st_uid;     /* user ID of owner */
+    uint32_t st_gid;     /* group ID of owner */
+    uint64_t st_rdev;    /* device ID (if special file) */
+    uint64_t st_size;    /* total size, in bytes */
+    uint64_t st_blksize; /* blocksize for filesystem I/O */
+    uint64_t st_blocks;  /* number of 512B blocks allocated */
+    int64_t  st_atime;   /* time of last access */
+    int64_t  st_mtime;   /* time of last modification */
+    int64_t  st_ctime;   /* time of last status change */
+};
+
 
 
 // Basic I/O
@@ -42,6 +66,9 @@ struct timespec {
 #define SYS_WRITE             1
 #define SYS_OPEN              2
 #define SYS_CLOSE             3
+#define SYS_STAT              4
+#define SYS_FSTAT             5
+#define SYS_LINK              86
 
 // Process control
 #define SYS_EXIT             60
@@ -49,6 +76,7 @@ struct timespec {
 #define SYS_EXECVE           59
 #define SYS_WAITPID          61
 #define SYS_GETPID           39
+#define SYS_TIMES            100
 
 #define SYS_BRK             12
 
@@ -61,7 +89,7 @@ struct timespec {
 #define SYS_GETDENTS68       78
 
 // Time
-#define SYS_GETTIMEOFDAY    169
+#define SYS_GETTIMEOFDAY     96
 #define SYS_NANOSLEEP        35
 #define SYS_CLOCK_GETTIME   228
 
@@ -94,6 +122,19 @@ struct timespec {
 #define SEEK_SET            0
 #define SEEK_CUR            1
 #define SEEK_END            2
+
+// stat mode bits
+#define S_IFMT   0170000   /* type of file mask */
+#define S_IFREG  0100000   /* regular file */
+#define S_IFDIR  0040000   /* directory */
+#define S_IFCHR  0020000   /* character special */
+#define S_IFBLK  0060000   /* block special */
+#define S_IFIFO  0010000   /* FIFO special */
+#define S_IFLNK  0120000   /* symbolic link */
+
+#define S_IRUSR  0000400   /* read permission, owner */
+#define S_IWUSR  0000200   /* write permission, owner */
+#define S_IXUSR  0000100   /* execute/search permission, owner */
 
 
 
@@ -246,6 +287,18 @@ static inline int64_t sys_close(int fd) {
     return syscall1(SYS_CLOSE, (uint64_t)fd);
 }
 
+static inline int64_t sys_fstat(int fd, struct stat* st) {
+    return syscall2(SYS_FSTAT, (uint64_t)fd, (uint64_t)st);
+}
+
+static inline int64_t sys_stat(const char* path, struct stat* st) {
+    return syscall2(SYS_STAT, (uint64_t)path, (uint64_t)st);
+}
+
+static inline int64_t sys_link(const char* oldpath, const char* newpath) {
+    return syscall2(SYS_LINK, (uint64_t)oldpath, (uint64_t)newpath);
+}
+
 // Process control
 static inline int64_t sys_exit(int status) {
     return syscall1(SYS_EXIT, (uint64_t)status);
@@ -265,6 +318,10 @@ static inline int64_t sys_waitpid(int pid, int* status, int options) {
 
 static inline int64_t sys_getpid(void) {
     return syscall0(SYS_GETPID);
+}
+
+static inline clock_t sys_times(struct tms* buf) {
+    return (clock_t)syscall1(SYS_TIMES, (uint64_t)buf);
 }
 
 

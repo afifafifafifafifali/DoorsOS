@@ -25,7 +25,7 @@ void so_test_run(void) {
     serial_io_printf("\n=== SO loader test ===\n");
  
     so_module_t mod;
-    so_error_t  err = so_load_file("/test_lib.so", get_kernel_exports(), &mod);
+    so_error_t  err = so_load_file("/lib/test_lib.so", get_kernel_exports(), &mod);
  
     if (err != SO_OK) {
         serial_io_printf("SO test FAILED to load: %s\n", so_strerror(err));

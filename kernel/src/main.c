@@ -44,8 +44,6 @@
 #include "identity.h"
 #include "vmm.h"
 #include "elf.h"
-#include "auxv.h"
-
 
 
 
@@ -282,9 +280,8 @@ void kmain(void) {
     phys_alloc_test();
     vmm_test();
     initPML4();
+
     
-
-
     printf("Memory OK\n");
 
     /* ========== GDT / IDT / PIC ========== */
@@ -374,7 +371,6 @@ void kmain(void) {
     uint64_t written = sys_print_write(1, test_msg, strlen(test_msg));
     printf("sys_write returned: %ld\n", written);
 
-    mmap_init();
     printf("=== Syscall Test Complete YAY ===\n\n");
 
 
@@ -416,6 +412,7 @@ void kmain(void) {
      printf("\nDoorsOS Shell v2.0\nCopyright(c),Afif Ali Saadman, 2025 or whatever year it is\n");
     printf("Type 'help' for commands\n\n");
 
+    mmap_init();
     /* ========== ELF Loader Test ========== */
     printf("\n=== ELF Loader Test ===\n");
 
@@ -429,7 +426,7 @@ void kmain(void) {
         serial_io_printf("Size: %lu bytes\n", test_prog.size);
 
         /* Allocate a stack for the ELF program (8KB) */
-        uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(32);
+        uint8_t *elf_stack = (uint8_t *)vmm_alloc_pages(2);
         if (!elf_stack) {
             serial_io_printf("Failed to allocate ELF stack!\n");
         } else {
@@ -445,31 +442,17 @@ void kmain(void) {
             char *envp[] = {"HOME=/","KERNEL=/efi/boot","basharbai","nawfle","laden","obama",NULL};
             uint64_t argc = 3;
 
-            /* Build auxiliary vector */
-            struct elf64_hdr *ehdr = test_prog.elf.hdr;
-            auxv_t auxv[] = {
-                { AT_PAGESZ,  4096 },
-                { AT_CLKTCK,  100 },
-                { AT_PHDR,    test_prog.base + ehdr->phoff },
-                { AT_PHENT,   ehdr->phdr_size },
-                { AT_PHNUM,   ehdr->ph_num },
-                { AT_ENTRY,   test_prog.entry },
-                { AT_BASE,    test_prog.base },
-                { AT_NULL,    0 }
-            };
-
             asm volatile(
                 "mov %%rsp, %%r12\n\t"         // save old stack
                 "mov %4, %%rsp\n\t"            // switch to ELF stack
                 "mov %1, %%rdi\n\t"            // argc
                 "mov %2, %%rsi\n\t"            // argv
                 "mov %3, %%rdx\n\t"            // envp
-                "mov %5, %%rcx\n\t"            // auxv
-                "call *%6\n\t"                 // call ELF entry
+                "call *%5\n\t"                 // call ELF entry
                 "mov %%r12, %%rsp\n\t"         // restore old stack
                 : "=a"(result)
-                : "r"(argc), "r"(argv), "r"(envp), "r"(stack_top), "r"(auxv), "r"(test_prog.entry)
-                : "r12", "rdi", "rsi", "rdx", "rcx", "memory"
+                : "r"(argc), "r"(argv), "r"(envp), "r"(stack_top), "r"(test_prog.entry)
+                : "r12", "rdi", "rsi", "rdx", "memory"
             );
             serial_io_printf("ELF binary returned: %lu\n", result);
             serial_io_printf("=== ELF Syscall Test Complete ===\n");
@@ -532,16 +515,13 @@ void kmain(void) {
     serial_io_printf("=== PIPE TEST END ===\n");
     fd_test_complete();
 
-     mmap_test_complete();
     serial_io_printf("=====Beginning le so test====\n");
     so_test_run();
 
     serial_io_printf("\n\n");
     test_sbrk();
     test_brk();
-    
-    
-   
+
     
 
 

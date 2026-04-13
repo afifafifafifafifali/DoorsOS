@@ -685,6 +685,7 @@ void test_mmap_multi() {
 
 
 
+void test_shared_object();
 void main_program(int argc, char **argv) {
     print_str("\n=== Unix Syscall Tests ===\n");
     for(int i = 0; i < argc; i++) {
@@ -701,10 +702,13 @@ void main_program(int argc, char **argv) {
     test_kbio_events();
     test_mouse_events();
 
+
     print_str("\n=== All Tests Complete ===\n");
 }
 
-void _start(int argc, char **argv, char **envp, auxv_t *auxv) {
+
+
+void _start(int argc, char **argv, char **envp) {
     const char msg[] = "Hello, DoorsOS! Unix Syscall Test Edition!\n";
     sys_print_write(1, msg, sizeof(msg) - 1);
 
@@ -721,10 +725,11 @@ void _start(int argc, char **argv, char **envp, auxv_t *auxv) {
         }
     }
 
-    print_auxv(auxv);
+
 
     main_program(argc, argv);
 
     sys_fuck_you();
+
     print_str("\nDone.\n");
 }

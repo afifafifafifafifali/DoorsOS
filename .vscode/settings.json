@@ -39,5 +39,6 @@
         "*.def": "c",
         "cstdio": "c",
         "multitasking.h": "c"
-    }
+    },
+    "C_Cpp.default.compilerPath": ""
 }

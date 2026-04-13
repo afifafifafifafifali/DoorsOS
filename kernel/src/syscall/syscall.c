@@ -17,7 +17,137 @@
 #include "../auxv.h"
 #include "../vmm.h"
 #include "../mmap.h"
+#include "../datandtime.h"
 
+/* 
+ * Add these functions to your fd.c or interrupts/fd.c file
+ * These are stub implementations - you'll need to expand them
+ * based on your actual filesystem implementation
+ */
+
+#include "syscall.h"
+#include "../libs/string.h"
+
+/**
+ * Get file status from file descriptor
+ * @param fd File descriptor
+ * @param st Pointer to stat structure to fill
+ * @return 0 on success, negative on error
+ */
+int fd_fstat(int fd, struct stat* st) {
+    /* TODO: Implement based on your FD table structure
+     * 
+     * Example implementation:
+     * if (fd < 0 || fd >= MAX_FDS || !fd_table[fd].in_use) {
+     *     return -1;
+     * }
+     * 
+     * st->st_mode = S_IFREG | S_IRUSR | S_IWUSR;  // Regular file, rw
+     * st->st_nlink = 1;
+     * st->st_size = fd_table[fd].size;
+     * st->st_blksize = 4096;
+     * st->st_blocks = (st->st_size + 511) / 512;
+     * st->st_atime = st->st_mtime = st->st_ctime = 0;  // Get from file metadata
+     * 
+     * return 0;
+     */
+    
+    // Stub: assume all FDs are regular files
+    if (fd < 0) return -1;
+    
+    st->st_mode = S_IFREG | S_IRUSR | S_IWUSR;
+    st->st_nlink = 1;
+    st->st_size = 0;  // You should get actual size from FD table
+    st->st_blksize = 4096;
+    st->st_blocks = 0;
+    st->st_atime = st->st_mtime = st->st_ctime = 0;
+    
+    return 0;
+}
+
+/**
+ * Get file status from path
+ * @param path File path
+ * @param st Pointer to stat structure to fill
+ * @return 0 on success, negative on error
+ */
+int fd_stat(const char* path, struct stat* st) {
+    /* TODO: Implement based on your filesystem
+     * 
+     * Example implementation:
+     * file_info_t info;
+     * if (fs_get_file_info(path, &info) < 0) {
+     *     return -1;
+     * }
+     * 
+     * st->st_mode = info.is_dir ? S_IFDIR : S_IFREG;
+     * st->st_mode |= S_IRUSR | S_IWUSR;
+     * st->st_nlink = 1;
+     * st->st_size = info.size;
+     * st->st_blksize = 4096;
+     * st->st_blocks = (info.size + 511) / 512;
+     * st->st_atime = info.access_time;
+     * st->st_mtime = info.modify_time;
+     * st->st_ctime = info.create_time;
+     * 
+     * return 0;
+     */
+    
+    // Stub: check if file exists using fd_open
+    int fd = fd_open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    
+    int ret = fd_fstat(fd, st);
+    fd_close(fd);
+    
+    return ret;
+}
+
+/**
+ * Create a hard link (in DoorsOS, just copy the file)
+ * @param oldpath Source file path
+ * @param newpath Destination file path
+ * @return 0 on success, negative on error
+ */
+int fd_link(const char* oldpath, const char* newpath) {
+    /* TODO: Real implementation should create a hard link
+     * For now, we just copy the file contents
+     * 
+     * Real hard links would:
+     * 1. Find the inode of oldpath
+     * 2. Create a new directory entry for newpath pointing to same inode
+     * 3. Increment the link count in the inode
+     * 
+     * But since you said "just copy paste", here's a simple copy:
+     */
+    
+    // Open source file
+    int src_fd = fd_open(oldpath, O_RDONLY);
+    if (src_fd < 0) return -1;
+    
+    // Create destination file
+    int dst_fd = fd_open(newpath, O_WRONLY | O_CREAT | O_TRUNC);
+    if (dst_fd < 0) {
+        fd_close(src_fd);
+        return -1;
+    }
+    
+    // Copy data
+    char buffer[4096];
+    ssize_t bytes;
+    while ((bytes = fd_read(src_fd, buffer, sizeof(buffer))) > 0) {
+        if (fd_write(dst_fd, buffer, bytes) != bytes) {
+            fd_close(src_fd);
+            fd_close(dst_fd);
+            return -1;
+        }
+    }
+    
+    fd_close(src_fd);
+    fd_close(dst_fd);
+    
+    return 0;
+}
 
 static  int task_errno = 0;
 
@@ -228,14 +358,106 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             break;
         }
         
+        case SYS_FSTAT: {
+            int fd = (int)arg1;
+            struct stat* st = (struct stat*)arg2;
+
+            if (!st) {
+                ret = set_errno_and_return(EFAULT);
+                break;
+            }
+
+            /* Zero out the stat struct */
+            memset(st, 0, sizeof(struct stat));
+
+            /* Handle fake VFS FDs */
+            if (fd == FD_FRAMEBUFFER) {
+                st->st_mode = S_IFCHR | S_IRUSR | S_IWUSR;
+                st->st_nlink = 1;
+                st->st_rdev = FD_FRAMEBUFFER;
+                ret = 0;
+                break;
+            }
+            if (fd == FD_KBIO_EVENTS || fd == FD_MOUSE_EVENTS) {
+                st->st_mode = S_IFCHR | S_IRUSR;
+                st->st_nlink = 1;
+                st->st_rdev = fd;
+                ret = 0;
+                break;
+            }
+
+            /* For regular file descriptors, get info from FD table */
+            ret = fd_fstat(fd, st);
+            if (ret < 0) {
+                ret = set_errno_and_return(EBADF);
+            }
+            break;
+        }
+
+        case SYS_STAT: {
+            const char* path = (const char*)arg1;
+            struct stat* st = (struct stat*)arg2;
+
+            if (!path || !st) {
+                ret = set_errno_and_return(EFAULT);
+                break;
+            }
+
+            memset(st, 0, sizeof(struct stat));
+
+            /* Handle fake VFS paths */
+            if (strncmp(path, "/dev/fb0", 9) == 0) {
+                st->st_mode = S_IFCHR | S_IRUSR | S_IWUSR;
+                st->st_nlink = 1;
+                st->st_rdev = FD_FRAMEBUFFER;
+                ret = 0;
+                break;
+            }
+            if (strncmp(path, "/dev/kbio", 10) == 0) {
+                st->st_mode = S_IFCHR | S_IRUSR;
+                st->st_nlink = 1;
+                st->st_rdev = FD_KBIO_EVENTS;
+                ret = 0;
+                break;
+            }
+            if (strncmp(path, "/dev/mouse", 11) == 0) {
+                st->st_mode = S_IFCHR | S_IRUSR;
+                st->st_nlink = 1;
+                st->st_rdev = FD_MOUSE_EVENTS;
+                ret = 0;
+                break;
+            }
+
+            /* For real files, stat them */
+            ret = fd_stat(path, st);
+            if (ret < 0) {
+                ret = set_errno_and_return(ENOENT);
+            }
+            break;
+        }
+
+        case SYS_LINK: {
+            const char* oldpath = (const char*)arg1;
+            const char* newpath = (const char*)arg2;
+
+            if (!oldpath || !newpath) {
+                ret = set_errno_and_return(EFAULT);
+                break;
+            }
+
+            /* Simple implementation: just copy the file */
+            ret = fd_link(oldpath, newpath);
+            if (ret < 0) {
+                ret = set_errno_and_return(EIO);
+            }
+            break;
+        }
     
         
         case SYS_EXIT: {
             // sys_exit(status) - set task exit code and kill
             int status = (int)arg1;
-            serial_io_printf("[SYSCALL exit] Task %d exiting with status %d\n", 
-                           runningTask->id, status);
-            taskDie(status);
+            
             
             ret = 0;
             break;
@@ -243,7 +465,12 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
         
         case SYS_GETPID: {
             
-            ret = runningTask->id;
+            if(!runningTask){
+                ret = 6767;
+            }
+            else {
+                ret = runningTask->id;
+            }
             break;
         }
         
@@ -288,7 +515,7 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
                            prog.base, prog.entry);
             
             
-            uint8_t* elf_stack = (uint8_t*)vmm_alloc_pages(32);  // 2 pages = 8KB
+            uint8_t* elf_stack = (uint8_t*)vmm_alloc_pages(2);  // 2 pages = 8KB
             uint64_t stack_top = (uint64_t)elf_stack + 0x2000;
             
             serial_io_printf("[SYSCALL execve] Stack at 0x%lx (top: 0x%lx)\n",
@@ -301,39 +528,23 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             }
             
             serial_io_printf("[SYSCALL execve] argc=%lu\n", argc);
-
-            /* Build auxiliary vector */
-            struct elf64_hdr *ehdr = prog.elf.hdr;
-            auxv_t auxv[] = {
-                { AT_PAGESZ,  4096 },
-                { AT_CLKTCK,  100 },
-                { AT_PHDR,    prog.base + ehdr->phoff },
-                { AT_PHENT,   ehdr->phdr_size },
-                { AT_PHNUM,   ehdr->ph_num },
-                { AT_ENTRY,   prog.entry },
-                { AT_BASE,    prog.base },
-                { AT_NULL,    0 }
-            };
-
-            serial_io_printf("[SYSCALL execve] auxv at %p\n", auxv);
-
-            // Execute ELF - call entry point with argc, argv, envp, auxv
-            void (*entry)(uint64_t, char**, char**, auxv_t*) = (void (*)(uint64_t, char**, char**, auxv_t*))prog.entry;
-
-
+            
+            // Execute ELF - call entry point with argc, argv, envp
+            void (*entry)(uint64_t, char**, char**) = (void (*)(uint64_t, char**, char**))prog.entry;
+            
+            
             runningTask->regs.rsp = stack_top;
             runningTask->regs.rip = prog.entry;
-
-
+            
+            
             asm volatile(
                 "mov %0, %%rdi\n\t"
-                "mov %1, %%rsi\n\t"
+                "mov %1, %%rsi\n\t"  
                 "mov %2, %%rdx\n\t"
-                "mov %3, %%rcx\n\t"
-                "call *%4\n\t"
+                "call *%3\n\t"
                 :
-                : "r"(argc), "r"(argv), "r"(envp), "r"(auxv), "r"(entry)
-                : "rdi", "rsi", "rdx", "rcx", "rax", "memory"
+                : "r"(argc), "r"(argv), "r"(envp), "r"(entry)
+                : "rdi", "rsi", "rdx", "rax", "rcx", "memory"
             );
             
             
@@ -342,6 +553,7 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             ret = 0;
             break;
         }
+        
         
         case SYS_WAITPID: {
             // sys_waitpid(pid, *status, options)
@@ -357,6 +569,24 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             break;
         }
         
+        case SYS_TIMES: {
+            struct tms* buf = (struct tms*)arg1;
+
+            if (!buf) {
+                ret = set_errno_and_return(EFAULT);
+                break;
+            }
+
+            /* Fill in process times (stubbed for now) */
+            buf->tms_utime = 0;   /* User CPU time */
+            buf->tms_stime = 0;   /* System CPU time */
+            buf->tms_cutime = 0;  /* User time of children */
+            buf->tms_cstime = 0;  /* System time of children */
+
+            /* Return clock ticks since boot (stubbed as 0 for now) */
+            ret = 0;
+            break;
+        }
        
         
         case SYS_BRK: {
@@ -430,7 +660,52 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
         
         
         case SYS_GETTIMEOFDAY: {
-            
+            struct timeval* tv = (struct timeval*)arg1;
+            struct timezone* tz = (struct timezone*)arg2;
+
+            if (tv) {
+                /* Get current RTC time */
+                DateTime dt = read_rtc_datetime();
+                
+                /* Convert to Unix timestamp (seconds since Jan 1, 1970)
+                 * This is a simplified calculation - doesn't handle leap years perfectly */
+                int64_t year = dt.year;
+                int64_t month = dt.month;
+                int64_t day = dt.day;
+                
+                /* Days since epoch (Jan 1, 1970) - rough calculation */
+                int64_t days_since_epoch = 0;
+                for (int64_t y = 1970; y < year; y++) {
+                    if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))
+                        days_since_epoch += 366;  /* Leap year */
+                    else
+                        days_since_epoch += 365;
+                }
+                
+                /* Add days in current year */
+                static const int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+                for (int m = 1; m < month; m++) {
+                    days_since_epoch += days_in_month[m - 1];
+                    /* Leap day adjustment */
+                    if (m == 2 && ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)))
+                        days_since_epoch += 1;
+                }
+                days_since_epoch += day - 1;
+                
+                /* Convert to seconds */
+                tv->tv_sec = days_since_epoch * 86400LL + 
+                             dt.hour * 3600LL + 
+                             dt.minute * 60LL + 
+                             dt.second;
+                
+                tv->tv_usec = 0;  /* No microsecond precision from RTC */
+            }
+
+            if (tz) {
+                tz->tz_minuteswest = TIMEZONE * 60;  /* Convert hours to minutes */
+                tz->tz_dsttime = 0;  /* No DST support */
+            }
+
             ret = 0;
             break;
         }
@@ -647,3 +922,4 @@ void syscall_init(void) {
     
     serial_io_printf("[SYSCALL] FD and MMAP subsystems ready\n");
 }
+
