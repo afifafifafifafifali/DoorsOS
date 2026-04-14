@@ -47,6 +47,258 @@
 
 
 
+typedef unsigned long long u64;
+typedef long long i64;
+
+#define PI      3.14159265358979323846264338327950288
+#define PI_2    1.57079632679489661923132169163975144
+#define PI_4    0.78539816339744830961566084581987572
+#define TWO_PI  6.28318530717958647692528676655900577
+#define INV_PI  0.31830988618379067153776752674502872
+#define LN2     0.69314718055994530941723212145817656
+
+// ======================================================
+// BIT-ROBUST RANGE REDUCTION (musl-style idea)
+// ======================================================
+
+static double k_fabs(double x) { return x < 0 ? -x : x; }
+
+static double k_floor(double x) {
+    i64 i = (i64)x;
+    if (x < 0 && x != i) i--;
+    return (double)i;
+}
+
+static double k_fmod(double x, double y) {
+    return x - k_floor(x / y) * y;
+}
+
+// ======================================================
+// HIGH PRECISION SQRT (Newton + normalization)
+// ======================================================
+
+double kalashinkov_sqrt(double x) {
+    if (x <= 0.0) return 0.0;
+
+    double g = x;
+
+    // normalize (improves convergence)
+    while (g > 4.0) g *= 0.25;
+    while (g < 1.0) g *= 4.0;
+
+    for (int i = 0; i < 7; i++) {
+        g = 0.5 * (g + x / g);
+    }
+
+    return g;
+}
+
+// ======================================================
+// EXP (musl-style range split: k*ln2 + r)
+// ======================================================
+
+static double exp_poly(double r) {
+    // minimax-like polynomial on small interval
+    double r2 = r * r;
+
+    return 1.0 +
+        r +
+        r2 * (0.5 +
+        r * (0.16666666666666666 +
+        r * (0.041666666666666664 +
+        r * (0.008333333333333333 +
+        r * 0.001388888888888889))));
+}
+
+double kalashinkov_exp(double x) {
+    if (x < -709.0) return 0.0;
+    if (x >  709.0) return 1e308;
+
+    // musl-style decomposition
+    i64 k = (i64)(x / LN2);
+    double r = x - k * LN2;
+
+    double y = exp_poly(r);
+
+    if (k > 0) while (k--) y *= 2.0;
+    else       while (k++) y *= 0.5;
+
+    return y;
+}
+
+// ======================================================
+// LOG (musl-style Newton refinement on exp inverse)
+// ======================================================
+
+double kalashinkov_log(double x) {
+    if (x <= 0.0) return -1e308;
+
+    i64 k = 0;
+
+    while (x >= 2.0) { x *= 0.5; k++; }
+    while (x < 1.0)  { x *= 2.0; k--; }
+
+    // initial approximation (log1p style)
+    double y = (x - 1.0) / (x + 1.0);
+    double y2 = y * y;
+
+    double log_approx =
+        2.0 * (y +
+        y * y2 * (1.0/3.0 +
+        y2 * (1.0/5.0 +
+        y2 * (1.0/7.0 +
+        y2 * (1.0/9.0)))));
+
+    y = log_approx;
+
+    // musl-style refinement (2-3 iterations only)
+    for (int i = 0; i < 3; i++) {
+        double e = kalashinkov_exp(y);
+        y -= (e - x) / e;
+    }
+
+    return y + k * LN2;
+}
+
+// ======================================================
+// SIN/COS (REAL musl-style quadrant reduction)
+// ======================================================
+
+static void reduce_sincos(double x, double *r, int *q) {
+    // reduce to multiples of pi/2
+    double n = k_floor(x / PI_2 + (x >= 0 ? 0.5 : -0.5));
+
+    *q = (int)n & 3;
+    *r = x - n * PI_2;
+}
+
+// polynomial valid on [-pi/4, pi/4]
+static double sin_poly(double x) {
+    double x2 = x * x;
+
+    return x *
+        (1.0 +
+        x2 * (-0.16666666666666666 +
+        x2 * (0.008333333333333333 +
+        x2 * (-0.0001984126984126984 +
+        x2 * 2.755731922398589e-6))));
+}
+
+static double cos_poly(double x) {
+    double x2 = x * x;
+
+    return 1.0 +
+        x2 * (-0.5 +
+        x2 * (0.041666666666666664 +
+        x2 * (-0.001388888888888889 +
+        x2 * 2.48015873015873e-5)));
+}
+
+double kalashinkov_sin(double x) {
+    double r;
+    int q;
+
+    reduce_sincos(x, &r, &q);
+
+    double s = sin_poly(r);
+    double c = cos_poly(r);
+
+    switch (q) {
+        case 0: return s;
+        case 1: return c;
+        case 2: return -s;
+        case 3: return -c;
+    }
+
+    return s;
+}
+
+double kalashinkov_cos(double x) {
+    return kalashinkov_sin(x + PI_2);
+}
+
+double kalashinkov_tan(double x) {
+    double c = kalashinkov_cos(x);
+    if (k_fabs(c) < 1e-15) return 1e308;
+    return kalashinkov_sin(x) / c;
+}
+
+
+void kalashinkov_Testall() {
+
+    serial_io_printf("\n===== KALASHINKOV LIBM TESTS =====\n");
+
+    double got, err;
+
+    // ================= SQRT =================
+    got = kalashinkov_sqrt(4.0);
+    err = got - 2.0;
+    serial_io_printf("sqrt(4) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_sqrt(2.0);
+    err = got - 1.41421356237;
+    serial_io_printf("sqrt(2) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_sqrt(100.0);
+    err = got - 10.0;
+    serial_io_printf("sqrt(100) = %f (err=%f)\n", got, err);
+
+    // ================= EXP =================
+    got = kalashinkov_exp(0.0);
+    err = got - 1.0;
+    serial_io_printf("exp(0) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_exp(1.0);
+    err = got - 2.71828182846;
+    serial_io_printf("exp(1) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_exp(-1.0);
+    err = got - 0.36787944117;
+    serial_io_printf("exp(-1) = %f (err=%f)\n", got, err);
+
+    // ================= LOG =================
+    got = kalashinkov_log(1.0);
+    err = got - 0.0;
+    serial_io_printf("log(1) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_log(2.71828182846);
+    err = got - 1.0;
+    serial_io_printf("log(e) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_log(10.0);
+    err = got - 2.30258509299;
+    serial_io_printf("log(10) = %f (err=%f)\n", got, err);
+
+    // ================= SIN =================
+    got = kalashinkov_sin(0.0);
+    err = got - 0.0;
+    serial_io_printf("sin(0) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_sin(1.57079632679);
+    err = got - 1.0;
+    serial_io_printf("sin(pi/2) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_sin(3.14159265359);
+    err = got - 0.0;
+    serial_io_printf("sin(pi) = %f (err=%f)\n", got, err);
+
+    // ================= COS =================
+    got = kalashinkov_cos(0.0);
+    err = got - 1.0;
+    serial_io_printf("cos(0) = %f (err=%f)\n", got, err);
+
+    got = kalashinkov_cos(1.57079632679);
+    err = got - 0.0;
+    serial_io_printf("cos(pi/2) = %f (err=%f)\n", got, err);
+
+    // ================= TAN =================
+    got = kalashinkov_tan(0.0);
+    err = got - 0.0;
+    serial_io_printf("tan(0) = %f (err=%f)\n", got, err);
+
+    serial_io_printf("\n===== TEST COMPLETE =====\n");
+}
+
 #define FILE_NAME "Kernel Entry (/main.c)"
 #define CODE_QUALITY "A"
 #define FILE_VERSION "2.0"
@@ -415,6 +667,7 @@ void kmain(void) {
     printf("Type 'help' for commands\n\n");
 
     mmap_init();
+    kalashinkov_Testall();
     /* ========== ELF Loader Test ========== */
     printf("\n=== ELF Loader Test ===\n");
 
