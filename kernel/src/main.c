@@ -181,14 +181,16 @@ static void enable_sse(void) {
     uint64_t cr0 = read_cr0();
     uint64_t cr4 = read_cr4();
 
-    /* Clear EM, set MP */
-    cr0 &= ~(1 << 2);
-    cr0 |=  (1 << 1);
+    /* Clear EM (bit 2), clear TS (bit 3), set MP (bit 1) */
+    cr0 &= ~(1ULL << 2);   /* EM = 0  — no FPU emulation */
+    cr0 |=  (1ULL << 1);   /* MP = 1  — monitor coprocessor */
+    cr0 &= ~(1ULL << 3);   /* TS = 0  — ← CRITICAL: allows FPU/SSE instructions */
 
     write_cr0(cr0);
 
-    /* Enable OSFXSR + OSXMMEXCPT */
-    cr4 |= (1 << 9) | (1 << 10);
+    /* Enable OSFXSR (bit 1) + OSXMMEXCPT (bit 9) */
+    cr4 |= (1ULL << 9);    /* OSXMMEXCPT — SSE exception support */
+    cr4 |= (1ULL << 1);    /* OSFXSR     — enable SSE/SSE2 */
 
     write_cr4(cr4);
 }
