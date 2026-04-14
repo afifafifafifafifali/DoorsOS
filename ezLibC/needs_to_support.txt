@@ -24,3 +24,4 @@ These are the syscalls the ezLibC uses.
 21.  int64_t sys_close(int fd);
 22. int64_isatty(int fd);
 23. int64_t sys_msync(void* addr, size_t length);
+24. int64_t sys_close(int fd);

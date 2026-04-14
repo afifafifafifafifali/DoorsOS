@@ -70,8 +70,8 @@ pid_t getpid(void);
  * _exit  —  calls sys_exit directly, never returns
  * exit   —  same thing (no atexit support yet)
  */
-_Noreturn void _exit(int status);
-_Noreturn int  exit(int status);
+void _exit(int status);
+int  exit(int status);
 
 /* ==================================================================
  * File metadata

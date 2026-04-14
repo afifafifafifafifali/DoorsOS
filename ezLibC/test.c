@@ -1,6 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <stdlib.h>
 
 /* Helper: write a string directly to stdout */
 static void print(const char* s) {
@@ -103,6 +104,92 @@ int main(int argc, char* argv[], char* envp[]) {
     print("getpid() = ");
     print_num(getpid());
     print("\n");
+
+    /* ===== Test malloc / free ===== */
+    print("\n=== malloc/free test ===\n");
+
+    char* p1 = (char*)malloc(64);
+    if (p1) {
+        strcpy(p1, "malloc works!");
+        print("malloc(64): ");
+        print(p1);
+        print("\n");
+        free(p1);
+        print("freed p1\n");
+    } else {
+        print("malloc failed!\n");
+    }
+
+    /* Multiple allocations */
+    char* a = (char*)malloc(16);
+    char* b = (char*)malloc(32);
+    char* c = (char*)malloc(48);
+    if (a && b && c) {
+        strcpy(a, "block A");
+        strcpy(b, "block B");
+        strcpy(c, "block C");
+        print("a="); print(a); print("\n");
+        print("b="); print(b); print("\n");
+        print("c="); print(c); print("\n");
+    }
+    free(c);
+    free(a);
+    free(b);
+    print("freed a, b, c\n");
+
+    /* ===== Test calloc ===== */
+    print("\n=== calloc test ===\n");
+    int* nums = (int*)calloc(5, sizeof(int));
+    if (nums) {
+        print("calloc(5, sizeof(int)) zeroed: ");
+        for (int i = 0; i < 5; i++) {
+            print_num(nums[i]);
+            print(" ");
+        }
+        print("\n");
+        nums[0] = 42; nums[4] = 99;
+        print("after set: ");
+        print_num(nums[0]); print(" ");
+        print_num(nums[4]); print("\n");
+        free(nums);
+    } else {
+        print("calloc failed!\n");
+    }
+
+    /* ===== Test realloc ===== */
+    print("\n=== realloc test ===\n");
+    char* rp = (char*)malloc(8);
+    if (rp) {
+        strcpy(rp, "small");
+        print("before realloc: ");
+        print(rp);
+        print("\n");
+
+        char* rp2 = (char*)realloc(rp, 64);
+        if (rp2) {
+            print("after realloc: ");
+            print(rp2);
+            print("\n");
+            strcpy(rp2, "realloc grew!");
+            print("new content: ");
+            print(rp2);
+            print("\n");
+            free(rp2);
+        } else {
+            print("realloc failed!\n");
+            free(rp);
+        }
+    }
+
+    /* ===== Test strdup ===== */
+    print("\n=== strdup test ===\n");
+    char* dup = strdup("hello from strdup");
+    if (dup) {
+        print("strdup: ");
+        print(dup);
+        print("\n");
+        free(dup);
+    }
 
     print("\nAll tests done!\n");
     return 0;

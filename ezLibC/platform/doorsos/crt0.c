@@ -9,7 +9,14 @@ static void printkk(const char* s) {
 extern int main(int argc, char* argv[], char* envp[]);
 
 void _start(int argc, char **argv, char **envp){
-    printkk("jumpingpong ");
+      __asm__ volatile (
+        "andq $-16, %%rsp\n"
+        :
+        :
+        : "rsp"
+    );
+
+    //printkk("jumpingpong ");
     int ret = main(argc, argv, envp);
 
     sys_exit(ret);

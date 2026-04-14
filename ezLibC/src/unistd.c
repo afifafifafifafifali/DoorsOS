@@ -25,10 +25,8 @@ int open(const char* pathname, int flags, ...) {
     return (int)sys_open(pathname, flags, mode);
 }
 
-/* Kernel has no close syscall — stub until added */
 int close(int fd) {
-    (void)fd;
-    return -1;
+   return sys_close(fd);
 }
 
 /* ==================================================================
@@ -63,12 +61,12 @@ pid_t getpid(void) {
     return (pid_t)sys_getpid();
 }
 
-_Noreturn void _exit(int status) {
+   void _exit(int status) {
     sys_exit(status);
     for (;;);
 }
 
-_Noreturn int exit(int status) {
+   int exit(int status) {
     _exit(status);
 }
 
