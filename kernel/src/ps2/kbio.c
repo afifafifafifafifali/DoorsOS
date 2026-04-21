@@ -42,21 +42,19 @@ static void keyboard_update_leds(void) {
 }
 
 static char get_char_from_scancode(uint8_t scancode, bool shift) {
-    if (scancode >= SCAN_F12) return 0;
+    if (scancode >= 0x58) return 0;
     
     static const char char_table[] = {
         0,    0,    '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8',  '9',  '0',
         '-',  '=',  0,    0x09, 'q',  'w',  'e',  'r',  't',  'y',  'u',  'i',
         'o',  'p',  '[',  ']', 0,    0,    'a',  's',  'd',  'f',  'g',  'h',
-        'j',  'k',  'l',  ';',  '\'', '`',  0,    '\\', 'z',  'x',  'c',  'v',
+        'j',  'k',  'l',  ';',  '\'',  '`',  0,    '\\', 'z',  'x',  'c',  'v',
         'b',  'n',  'm',  ',',  '.',  '/',  0,    '*',  0x0F, ' ',  0,    0,
         0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
         0,    0,    0,    0,    0,    0,    0,    0,    0x1B, 0,    0,    0,
-        0,    0,    0,    0,    0,    0,    0,    0x0E, 0x1C, 0,    0,    0,
+        0,    0,    0,    0,    0,    0,    0,    0x0E, '\n', 0,    0,    0,
         0,    0,    0,    0,    0,    '/',  0,    0,    0,    0,    0,    0,
         0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-        0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0,
-        0,    0,    0,    0,    0,    0,    0,    0x2C,
     };
     
     static const char shift_char_table[] = {
@@ -67,19 +65,16 @@ static char get_char_from_scancode(uint8_t scancode, bool shift) {
         'B',  'N',  'M',  '<',  '>',  '?',  0,    '*',  0x0F, ' ',  0,    0,
         0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
         0,    0,    0,    0,    0,    0,    0,    0,    0x1B, 0,    0,    0,
-        0,    0,    0,    0,    0,    0,    0,    0x0E, 0x1C, 0,    0,    0,
+        0,    0,    0,    0,    0,    0,    0,    0x0E, '\n', 0,    0,    0,
         0,    0,    0,    0,    0,    '?',  0,    0,    0,    0,    0,    0,
         0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-        0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0,
-        0,    0,    0,    0,    0,    0,    0,    0x2C,
     };
     
     char c = shift ? shift_char_table[scancode] : char_table[scancode];
     
-    // Apply Caps Lock for letters
     if (caps_lock && c >= 'a' && c <= 'z') {
         c -= 32;
-    } else if (caps_lock && c >= 'A' && c <= 'Z' && !shift) {
+    } else if (caps_lock && c >= 'A' && c <= 'Z') {
         c += 32;
     }
     
@@ -186,8 +181,8 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
         c = c - 'a' + 1;
     }
 
-    // Handle arrow keys - push ANSI escape sequences to ring buffer
-    if (!is_release) {
+    // Handle arrow keys - push ANSI escape sequences to ring buffer (raw mode only)
+    if (input_buffer == NULL && !is_release) {
         if (scancode == SCAN_UP) {
             kbio_ring_push('\033');
             kbio_ring_push('[');
@@ -207,18 +202,30 @@ void keyboard_irq_handler(interrupt_frame_t* frame) {
         }
     }
 
-    // Always add to ring buffer for non-blocking reads (raw)
-    if (c != 0) {
-        kbio_ring_push(c);
+    // Handle raw mode / no shell input - push to ring buffer
+    if (input_buffer == NULL) {
+        // Add printable characters to ring buffer (skip Enter since we handle separately)
+        if (!is_release && c != 0 && scancode != SCAN_ENTER) {
+            kbio_ring_push(c);
+        }
+
+        // Handle Enter key (add newline for all modes)
+        if (!is_release && scancode == SCAN_ENTER) {
+            kbio_ring_push('\n');
+
+        }
+
+        if(!is_release && scancode == SCAN_BACKSPACE ){
+            kbio_ring_push('\b');
+        }
+
+        // Store scancode event for games
+        //kbio_ring_push((char)(scancode | (is_release ? 0x80 : 0)));
     }
 
-    // Store scancode event for games
-    kbio_ring_push((char)(scancode | (is_release ? 0x80 : 0)));
-
-    // Handle cooked mode (shell input with echoing)
-    if (keyboard_mode == KBIO_MODE_COOKED && input_buffer != NULL && !input_finished) {
+    // Handle cooked mode (shell input) - write directly to input_buffer
+    if (input_buffer != NULL && !input_finished) {
         
-        // Handle Enter key
         if (scancode == SCAN_ENTER) {
             input_finished = true;
             if (buffer_pos < buffer_size) {
@@ -334,7 +341,11 @@ void ps2_kbio_init(void) {
     keyboard_leds = 0;
     keyboard_update_leds();
     
+    kbio_read_idx = 0;
+    kbio_write_idx = 0;
+    
     keyboard_mode = KBIO_MODE_COOKED;
+    kbio_flush_buffer();
 }
 
 void reset_keyboard_input_state(void) {
@@ -342,6 +353,11 @@ void reset_keyboard_input_state(void) {
     buffer_pos = 0;
     buffer_size = 0;
     input_finished = false;
+}
+
+void kbio_flush_buffer(void) {
+    kbio_read_idx = 0;
+    kbio_write_idx = 0;
 }
 
 void kbio_set_mode(kbio_mode_t mode) {
@@ -374,6 +390,7 @@ string_t ps2_kbio_read(string_t buffStr, size_t buffSize) {
     }
 
     reset_keyboard_input_state();
+    kbio_flush_buffer();
     return result;
 }
 
@@ -444,8 +461,13 @@ string_t ps2_kbio_read_enhanced(string_t buffStr, size_t buffSize, int* cursor_y
 }
 
 char ps2_kbio_getchar_nb(void) {
+
     // Raw mode - no echoing, just return character from ring buffer
-    return kbio_ring_pop();
+    char c = kbio_ring_pop();
+    if(c == '\n') {
+        serial_io_printf("HIIIII enter ki\n");
+    }
+    return c;
 }
 
 bool kbio_get_event(kbio_event_t* event) {

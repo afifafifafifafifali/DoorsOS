@@ -544,8 +544,10 @@ static int fmt_float_shortest(out_buf_t* o, double d, int precision, int fmt,
 /* ==================================================================
  * Core formatted output engine
  * ================================================================== */
-
 static int do_fmt(out_buf_t* o, const char* fmt, va_list ap) {
+    va_list aq;
+    va_copy(aq, ap);   // ✅ IMPORTANT FIX
+
     int total = 0;
     const char* p = fmt;
 
@@ -572,8 +574,7 @@ static int do_fmt(out_buf_t* o, const char* fmt, va_list ap) {
 
         /* Width */
         int width = 0;
-        bool width_star = false;
-        if (*p == '*') { width_star = true; width = va_arg(ap, int); p++; }
+        if (*p == '*') { width = va_arg(aq, int); p++; }
         else {
             while (*p >= '0' && *p <= '9') {
                 width = width * 10 + (*p - '0');
@@ -583,12 +584,10 @@ static int do_fmt(out_buf_t* o, const char* fmt, va_list ap) {
 
         /* Precision */
         int precision = -1;
-        bool prec_star = false;
         if (*p == '.') {
             p++;
-            prec_star = true;
             if (*p == '*') {
-                precision = va_arg(ap, int);
+                precision = va_arg(aq, int);
                 p++;
             } else {
                 precision = 0;
@@ -608,255 +607,102 @@ static int do_fmt(out_buf_t* o, const char* fmt, va_list ap) {
         else if (*p == 't') { length = LEN_t; p++; }
         else if (*p == 'j') { length = LEN_j; p++; }
 
-        /* Specifier */
         char spec = *p;
         if (spec) p++;
 
-        /* ---- Handle each specifier ---- */
         char tmpbuf[512];
-        int  tmpused = 0;
+        int tmpused = 0;
 
         switch (spec) {
-        case '%': {
+
+        case '%':
             out_putc(o, '%');
             total++;
             break;
-        }
 
         case 'c': {
-            char c = (char)va_arg(ap, int);
+            char c = (char)va_arg(aq, int);
             out_putc(o, c);
             total++;
             break;
         }
 
-        case 'd': case 'i': {
-            int64_t val;
-            switch (length) {
-                case LEN_hh: val = (int8_t)va_arg(ap, int); break;
-                case LEN_h:  val = (int16_t)va_arg(ap, int); break;
-                case LEN_l:  val = va_arg(ap, long); break;
-                case LEN_ll: val = va_arg(ap, long long); break;
-                case LEN_z:  val = (int64_t)va_arg(ap, size_t); break;
-                case LEN_t:  val = (int64_t)va_arg(ap, ptrdiff_t); break;
-                case LEN_j:  val = (int64_t)va_arg(ap, intmax_t); break;
-                default:     val = va_arg(ap, int); break;
+        case 's': {
+            const char* s = va_arg(aq, const char*);
+            if (!s) s = "(null)";
+            while (*s) {
+                out_putc(o, *s++);
+                total++;
             }
-            bool neg = (val < 0);
-            uint64_t uval = neg ? (uint64_t)(-val) : (uint64_t)val;
-            tmpused = int_to_str(tmpbuf, uval, 10, false);
-
-            /* Sign */
-            char sign_char = 0;
-            if (neg) sign_char = '-';
-            else if (plus_sign) sign_char = '+';
-            else if (space_sign) sign_char = ' ';
-
-            int slen = sign_char ? 1 : 0;
-            int pad_prec = (precision > tmpused) ? precision - tmpused : 0;
-            int total_len = slen + pad_prec + tmpused;
-            int pad_total = (width > total_len) ? width - total_len : 0;
-
-            if (!left_align && !zero_pad) for (int i = 0; i < pad_total; i++) { out_putc(o, ' '); total++; }
-            if (sign_char) { out_putc(o, sign_char); total++; }
-            if (!left_align && zero_pad) for (int i = 0; i < pad_total; i++) { out_putc(o, '0'); total++; }
-            for (int i = 0; i < pad_prec; i++) { out_putc(o, '0'); total++; }
-            for (int i = 0; i < tmpused; i++) { out_putc(o, tmpbuf[i]); total++; }
-            if (left_align) for (int i = 0; i < pad_total; i++) { out_putc(o, ' '); total++; }
             break;
         }
 
-        case 'u': case 'x': case 'X': case 'o': case 'b': {
-            uint64_t uval;
-            switch (length) {
-                case LEN_hh: uval = (uint8_t)va_arg(ap, unsigned int); break;
-                case LEN_h:  uval = (uint16_t)va_arg(ap, unsigned int); break;
-                case LEN_l:  uval = va_arg(ap, unsigned long); break;
-                case LEN_ll: uval = va_arg(ap, unsigned long long); break;
-                case LEN_z:  uval = va_arg(ap, size_t); break;
-                case LEN_t:  uval = (uint64_t)va_arg(ap, ptrdiff_t); break;
-                case LEN_j:  uval = va_arg(ap, uintmax_t); break;
-                default:     uval = va_arg(ap, unsigned int); break;
+        case 'd': case 'i': {
+            int64_t val = va_arg(aq, int);
+            if (length == LEN_l) val = va_arg(aq, long);
+            else if (length == LEN_ll) val = va_arg(aq, long long);
+
+            bool neg = val < 0;
+            uint64_t u = neg ? -val : val;
+
+            tmpused = int_to_str(tmpbuf, u, 10, false);
+
+            if (neg) out_putc(o, '-');
+
+            for (int i = 0; i < tmpused; i++) {
+                out_putc(o, tmpbuf[i]);
             }
-            int base = (spec == 'x' || spec == 'X') ? 16 : (spec == 'o') ? 8 : (spec == 'b') ? 2 : 10;
+
+            total += tmpused + (neg ? 1 : 0);
+            break;
+        }
+
+        case 'u': case 'x': case 'X': {
+            uint64_t val = va_arg(aq, unsigned int);
+            if (length == LEN_l) val = va_arg(aq, unsigned long);
+            else if (length == LEN_ll) val = va_arg(aq, unsigned long long);
+
+            int base = (spec == 'x' || spec == 'X') ? 16 : 10;
             bool upper = (spec == 'X');
 
-            /* # flag prefix */
-            const char* prefix = "";
-            int prefix_len = 0;
-            if (alt_form && uval != 0) {
-                if (base == 16) { prefix = upper ? "0X" : "0x"; prefix_len = 2; }
-                else if (base == 8) { prefix = "0"; prefix_len = 1; }
-                else if (base == 2) { prefix = "0b"; prefix_len = 2; }
+            tmpused = int_to_str(tmpbuf, val, base, upper);
+
+            for (int i = 0; i < tmpused; i++) {
+                out_putc(o, tmpbuf[i]);
             }
 
-            tmpused = int_to_str(tmpbuf, uval, base, upper);
-
-            int pad_prec = (precision > tmpused) ? precision - tmpused : 0;
-            int total_len = prefix_len + pad_prec + tmpused;
-            int pad_total = (width > total_len) ? width - total_len : 0;
-
-            if (!left_align && !zero_pad) for (int i = 0; i < pad_total; i++) { out_putc(o, ' '); total++; }
-            for (int i = 0; i < prefix_len; i++) { out_putc(o, prefix[i]); total++; }
-            if (!left_align && zero_pad) for (int i = 0; i < pad_total; i++) { out_putc(o, '0'); total++; }
-            for (int i = 0; i < pad_prec; i++) { out_putc(o, '0'); total++; }
-            for (int i = 0; i < tmpused; i++) { out_putc(o, tmpbuf[i]); total++; }
-            if (left_align) for (int i = 0; i < pad_total; i++) { out_putc(o, ' '); total++; }
+            total += tmpused;
             break;
         }
 
         case 'p': {
-            uintptr_t val = va_arg(ap, uintptr_t);
-            out_puts(o, "0x", 2); total += 2;
+            uintptr_t val = va_arg(aq, uintptr_t);
+            out_puts(o, "0x", 2);
+            total += 2;
+
             tmpused = int_to_str(tmpbuf, val, 16, false);
-            for (int i = 0; i < tmpused; i++) { out_putc(o, tmpbuf[i]); total++; }
+            for (int i = 0; i < tmpused; i++) {
+                out_putc(o, tmpbuf[i]);
+            }
+            total += tmpused;
             break;
         }
 
-        case 's': {
-            const char* s = va_arg(ap, const char*);
-            if (!s) s = "(null)";
-            int slen = 0;
-            if (precision >= 0) {
-                while (s[slen] && slen < precision) slen++;
-            } else {
-                while (s[slen]) slen++;
-            }
-            int pad_total = (width > slen) ? width - slen : 0;
-            if (!left_align) for (int i = 0; i < pad_total; i++) { out_putc(o, ' '); total++; }
-            for (int i = 0; i < slen; i++) { out_putc(o, s[i]); total++; }
-            if (left_align) for (int i = 0; i < pad_total; i++) { out_putc(o, ' '); total++; }
+        case 'f': {
+            double d = va_arg(aq, double);
+            fmt_float_decimal(o, d, 6, spec, false, false);
             break;
         }
 
-        /* ---- Floating point ---- */
-        case 'f': case 'F': {
-            double val;
-            if (length == LEN_L) {
-                val = (double)va_arg(ap, long double);
-            } else {
-                val = va_arg(ap, double);
-            }
-            int pr = (precision >= 0) ? precision : 6;
-            size_t before = o->used;
-            fmt_float_decimal(o, val, pr, spec, false, alt_form);
-            total += (int)(o->used - before);
+        default:
+            out_putc(o, '%');
+            if (spec) out_putc(o, spec);
+            total += 2;
             break;
         }
+    }
 
-        case 'e': case 'E': {
-            double val;
-            if (length == LEN_L) {
-                val = (double)va_arg(ap, long double);
-            } else {
-                val = va_arg(ap, double);
-            }
-            int pr = (precision >= 0) ? precision : 6;
-            size_t before = o->used;
-            fmt_float_scientific(o, val, pr, spec, false, alt_form, spec == 'E');
-            total += (int)(o->used - before);
-            break;
-        }
-
-        case 'g': case 'G': {
-            double val;
-            if (length == LEN_L) {
-                val = (double)va_arg(ap, long double);
-            } else {
-                val = va_arg(ap, double);
-            }
-            int pr = (precision >= 0) ? precision : 6;
-            size_t before = o->used;
-            fmt_float_shortest(o, val, pr, spec, alt_form);
-            total += (int)(o->used - before);
-            break;
-        }
-
-        case 'a': case 'A': {
-            double val;
-            if (length == LEN_L) {
-                val = (double)va_arg(ap, long double);
-            } else {
-                val = va_arg(ap, double);
-            }
-            /* Hexadecimal float: 0x1.d70a3d70a3d71p+2 style */
-            size_t before = o->used;
-            fp_parts_t fp = unpack_double(val);
-            if (fp.is_nan) {
-                out_puts(o, spec == 'A' ? "NAN" : "nan", 3);
-                break;
-            }
-            if (fp.is_inf) {
-                if (fp.sign) out_putc(o, '-');
-                out_puts(o, spec == 'A' ? "INF" : "inf", 3);
-                break;
-            }
-
-            if (fp.sign) out_putc(o, '-');
-            out_puts(o, spec == 'A' ? "0X" : "0x", 2);
-
-            if (fp.is_zero) {
-                out_putc(o, '1');
-                int pr = (precision >= 0) ? precision : -1;
-                if (pr >= 0 || alt_form) {
-                    out_putc(o, '.');
-                    int digs = (pr < 0) ? 0 : pr;
-                    for (int i = 0; i < digs; i++) out_putc(o, '0');
-                }
-                out_putc(o, spec == 'A' ? 'P' : 'p');
-                out_puts(o, "+0", 2);
-                total += (int)(o->used - before);
-                break;
-            }
-
-            /* Normalized: 1.xxx */
-            const char* hex = (spec == 'A') ? "0123456789ABCDEF" : "0123456789abcdef";
-
-            out_putc(o, '1');
-
-            /* Fractional hex digits from mantissa */
-            int pr = (precision >= 0) ? precision : -1;
-            if (pr >= 0 || alt_form) {
-                out_putc(o, '.');
-                int max_digits = (pr < 0) ? 13 : pr;
-                uint64_t m = fp.mantissa;
-                for (int i = 0; i < max_digits; i++) {
-                    int nibble = (int)((m >> (52 - 4 * (i + 1))) & 0xF);
-                    out_putc(o, hex[nibble]);
-                }
-            }
-
-            out_putc(o, spec == 'A' ? 'P' : 'p');
-            if (fp.exp_val >= 0) out_putc(o, '+');
-            else { out_putc(o, '-'); fp.exp_val = -fp.exp_val; }
-
-            char ebuf[8]; int ei = 0;
-            if (fp.exp_val == 0) { ebuf[ei++] = '0'; }
-            else {
-                char tmp[8]; int ti = 0;
-                int ev = fp.exp_val;
-                while (ev > 0) { tmp[ti++] = '0' + (ev % 10); ev /= 10; }
-                for (int j = ti - 1; j >= 0; j--) ebuf[ei++] = tmp[j];
-            }
-            out_puts(o, ebuf, ei);
-            total += (int)(o->used - before);
-            break;
-        }
-
-        case 'n': {
-            int* np = va_arg(ap, int*);
-            if (np) *np = (int)o->used;
-            break;
-        }
-
-        default: {
-            /* Unknown specifier — just print it literally */
-            out_putc(o, '%'); total++;
-            if (spec) { out_putc(o, spec); total++; }
-            break;
-        }
-        } /* switch */
-    } /* while *p */
+    va_end(aq);  // ✅ IMPORTANT
 
     return out_finish(o);
 }

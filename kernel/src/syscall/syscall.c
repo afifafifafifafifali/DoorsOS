@@ -235,6 +235,7 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
 
                 while (bytes_read < count) {
                     char c = ps2_kbio_getchar_nb();
+                    serial_io_printf("char: %c\n",c);
                     if (c == 0) break;
                     char_buf[bytes_read++] = c;
                 }

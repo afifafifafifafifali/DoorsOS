@@ -149,6 +149,7 @@ string_t ps2_kbio_read_enhanced(string_t buffStr, size_t buffSize, int* cursor_y
 void ps2_kbio_init(void);
 char ps2_kbio_getchar_nb(void);
 void reset_keyboard_input_state(void);
+void kbio_flush_buffer(void);
 void kbio_set_mode(kbio_mode_t mode);
 kbio_mode_t kbio_get_mode(void);
 bool kbio_get_event(kbio_event_t* event);

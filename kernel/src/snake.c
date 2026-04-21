@@ -113,6 +113,9 @@ static void handle_input(void) {
     char c = ps2_kbio_getchar_nb();
     serial_io_printf("Char c == %c\n",c);
     if (c == 0) return;  // No key pressed
+    else if (c == '\n'){
+        serial_io_printf("ENTER\n");
+    }
 
     // Check for ANSI escape sequence (arrow keys)
     if (c == '\033') {
