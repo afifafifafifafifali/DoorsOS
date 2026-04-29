@@ -25,7 +25,7 @@ void fd_init(void) {
 
 // Find a free file descriptor slot
 static int find_free_fd(void) {
-    for (int i = 0; i < MAX_FDS; i++) {
+    for (int i = 5; i < MAX_FDS; i++) {
         if (fd_table[i].type == FD_TYPE_NONE) {
             return i;
         }
@@ -66,7 +66,7 @@ int fd_open(const char* path, int flags) {
     
     serial_io_printf("#2");
     // Allocate a temporary buffer to check if file exists
-    uint8_t* temp_buf = malloc(16 * 1024 * 1024); // 16MB max file size
+    uint8_t* temp_buf = malloc(67736); // 16MB max file size
     if (!temp_buf) {
         serial_io_printf("fd_open: failed to allocate temp buffer\n");
         desc->type = FD_TYPE_NONE;

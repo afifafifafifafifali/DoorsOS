@@ -95,19 +95,40 @@ static void in_init_str(in_buf_t* i, const char* s) {
 }
 
 static int in_getc(in_buf_t* i) {
-    if (i->peeked) { i->peeked = 0; return (int)(unsigned char)i->peek_c; }
+    if (i->peeked) {
+        i->peeked = 0;
+        return (int)(unsigned char)i->peek_c;
+    }
+
     if (i->eof) return EOF;
 
     char c;
+
     if (i->fd >= 0) {
-        int64_t n = sys_read(i->fd, &c, 1);
-        if (n <= 0) { i->eof = 1; return EOF; }
-        return (int)(unsigned char)c;
+        while (1) {
+            int64_t n = sys_read(i->fd, &c, 1);
+
+            if (n > 0) {
+                return (int)(unsigned char)c;
+            }
+
+            if (n < 0) {
+                i->eof = 1;
+                return EOF;
+            }
+
+            // n == 0 → NO INPUT YET
+            // keep waiting
+        }
     }
-    if (*i->buf == '\0') { i->eof = 1; return EOF; }
+
+    if (*i->buf == '\0') {
+        i->eof = 1;
+        return EOF;
+    }
+
     return (int)(unsigned char)*i->buf++;
 }
-
 static int in_peekc(in_buf_t* i) {
     if (i->peeked) return (int)(unsigned char)i->peek_c;
     int c = in_getc(i);
@@ -932,185 +953,67 @@ static int parse_double(in_buf_t* i, double* out) {
  * ================================================================== */
 
 static int do_scanf(in_buf_t* i, const char* fmt, va_list ap) {
+    va_list aq;
+    va_copy(aq, ap);
+
     int assigned = 0;
-    const char* p = fmt;
 
-    while (*p && !i->eof) {
-        /* Whitespace in format string matches any whitespace in input */
-        if (*p == ' ' || *p == '\t' || *p == '\n') {
+    while (*fmt) {
+        if (*fmt == ' ') {
             skip_whitespace(i);
-            p++;
+            fmt++;
             continue;
         }
 
-        if (*p != '%') {
-            /* Literal match */
+        if (*fmt != '%') {
             int c = in_getc(i);
-            if (c != *p) {
-                /* Mismatch — push back not supported, just break */
-                break;
-            }
-            p++;
+            if (c != *fmt) break;
+            fmt++;
             continue;
         }
 
-        p++; /* skip '%' */
+        fmt++; // skip %
 
-        /* Assignment suppression */
-        bool suppress = false;
-        if (*p == '*') { suppress = true; p++; }
-
-        /* Width */
-        int width = -1;
-        if (*p >= '0' && *p <= '9') {
-            width = 0;
-            while (*p >= '0' && *p <= '9') { width = width * 10 + (*p - '0'); p++; }
-        }
-
-        /* Length modifier */
-        enum { LEN_none, LEN_h, LEN_hh, LEN_l, LEN_ll, LEN_L, LEN_z, LEN_t, LEN_j } length = LEN_none;
-        if      (*p == 'h') { length = LEN_h; p++; if (*p == 'h') { length = LEN_hh; p++; } }
-        else if (*p == 'l') { length = LEN_l; p++; if (*p == 'l') { length = LEN_ll; p++; } }
-        else if (*p == 'L') { length = LEN_L; p++; }
-        else if (*p == 'z') { length = LEN_z; p++; }
-        else if (*p == 't') { length = LEN_t; p++; }
-        else if (*p == 'j') { length = LEN_j; p++; }
-
-        char spec = *p;
-        if (spec) p++;
-
-        switch (spec) {
-        case 'd': case 'i': {
+        if (*fmt == 'd') {
+            int* out = va_arg(aq, int*);
             int64_t val;
-            bool neg;
-            int base = (spec == 'i') ? 0 : 10;
-            int n = parse_int(i, &val, base, &neg);
-            if (n <= 0) return assigned;
-
-            if (!suppress) {
-                switch (length) {
-                    case LEN_hh: *(int8_t*)va_arg(ap, void*) = (int8_t)val; break;
-                    case LEN_h:  *(int16_t*)va_arg(ap, void*) = (int16_t)val; break;
-                    case LEN_l:  *(long*)va_arg(ap, void*) = (long)val; break;
-                    case LEN_ll: *(long long*)va_arg(ap, void*) = (long long)val; break;
-                    default:     *(int*)va_arg(ap, void*) = (int)val; break;
-                }
-                assigned++;
-            }
-            break;
+            if (!parse_int(i, &val, 10, NULL)) break;
+            *out = (int)val;
+            assigned++;
+            fmt++;
         }
-
-        case 'u': case 'x': case 'X': case 'o': {
-            uint64_t val;
-            int base = (spec == 'x' || spec == 'X') ? 16 : (spec == 'o') ? 8 : 10;
-
+        else if (*fmt == 's') {
+            char* out = va_arg(aq, char*);
             skip_whitespace(i);
+
             int c = in_peekc(i);
-            if (c == EOF) return assigned;
+            if (c == EOF) break;
 
-            bool neg_dummy;
-            int64_t sv;
-            int n = parse_int(i, &sv, base, &neg_dummy);
-            val = (uint64_t)sv;
-            if (n <= 0) return assigned;
-
-            if (!suppress) {
-                switch (length) {
-                    case LEN_hh: *(uint8_t*)va_arg(ap, void*) = (uint8_t)val; break;
-                    case LEN_h:  *(uint16_t*)va_arg(ap, void*) = (uint16_t)val; break;
-                    case LEN_l:  *(unsigned long*)va_arg(ap, void*) = (unsigned long)val; break;
-                    case LEN_ll: *(unsigned long long*)va_arg(ap, void*) = (unsigned long long)val; break;
-                    default:     *(unsigned int*)va_arg(ap, void*) = (unsigned int)val; break;
-                }
-                assigned++;
+            int idx = 0;
+            while (c != EOF && !(c==' '||c=='\n'||c=='\t'||c=='\r')) {
+                out[idx++] = (char)in_getc(i);
+                c = in_peekc(i);
             }
-            break;
+            out[idx] = '\0';
+            assigned++;
+            fmt++;
         }
-
-        case 'f': case 'g': case 'G': case 'e': case 'E': {
-            double val;
-            int n = parse_double(i, &val);
-            if (n <= 0) return assigned;
-
-            if (!suppress) {
-                if (length == LEN_L) {
-                    *(long double*)va_arg(ap, void*) = (long double)val;
-                } else if (length == LEN_l) {
-                    *(double*)va_arg(ap, void*) = val;
-                } else {
-                    *(float*)va_arg(ap, void*) = (float)val;
-                }
-                assigned++;
-            }
-            break;
+        else if (*fmt == 'c') {
+            char* out = va_arg(aq, char*);
+            int c = in_getc(i);
+            if (c == EOF) break;
+            *out = (char)c;
+            assigned++;
+            fmt++;
         }
-
-        case 'c': {
-            int cnt = (width < 0) ? 1 : width;
-            char* buf = suppress ? NULL : va_arg(ap, char*);
-            for (int j = 0; j < cnt; j++) {
-                int c = in_getc(i);
-                if (c == EOF) break;
-                if (buf) buf[j] = (char)c;
-            }
-            if (!suppress) assigned++;
-            break;
-        }
-
-        case 's': {
-            skip_whitespace(i);
-            char* buf = suppress ? NULL : va_arg(ap, char*);
-            int cnt = 0;
-            int c;
-            while ((c = in_peekc(i)) != EOF && c != ' ' && c != '\t' && c != '\n') {
-                in_getc(i);
-                if (buf && cnt < (width >= 0 ? width : 1000)) {
-                    buf[cnt] = (char)c;
-                    cnt++;
-                }
-            }
-            if (buf) buf[cnt] = '\0';
-            if (!suppress) assigned++;
-            break;
-        }
-
-        case 'p': {
-            uintptr_t val;
-            bool neg_dummy;
-            /* Accept hex like 0x... */
-            int64_t sv;
-            int n = parse_int(i, &sv, 16, &neg_dummy);
-            if (n <= 0) return assigned;
-            val = (uintptr_t)sv;
-            if (!suppress) {
-                *(void**)va_arg(ap, void*) = (void*)val;
-                assigned++;
-            }
-            break;
-        }
-
-        case 'n': {
-            if (!suppress) {
-                *(int*)va_arg(ap, void*) = assigned;
-            }
-            break;
-        }
-
-        case '[': {
-            /* Scan set — not fully implemented, skip to next ']' */
-            while (*p && *p != ']') p++;
-            if (*p == ']') p++;
-            break;
-        }
-
-        default:
-            break;
+        else {
+            fmt++;
         }
     }
 
+    va_end(aq);
     return assigned;
 }
-
 /* ==================================================================
  * Public scanf family
  * ================================================================== */
@@ -1118,9 +1021,12 @@ static int do_scanf(in_buf_t* i, const char* fmt, va_list ap) {
 int scanf(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
+
     in_buf_t i;
     in_init_fd(&i, STDIN_FILENO);
+
     int r = do_scanf(&i, fmt, ap);
+
     va_end(ap);
     return r;
 }
@@ -1128,9 +1034,12 @@ int scanf(const char* fmt, ...) {
 int fscanf(FILE* stream, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
+
     in_buf_t i;
     in_init_fd(&i, stream ? stream->fd : STDIN_FILENO);
+
     int r = do_scanf(&i, fmt, ap);
+
     va_end(ap);
     return r;
 }
@@ -1138,9 +1047,12 @@ int fscanf(FILE* stream, const char* fmt, ...) {
 int sscanf(const char* buf, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
+
     in_buf_t i;
     in_init_str(&i, buf);
+
     int r = do_scanf(&i, fmt, ap);
+
     va_end(ap);
     return r;
 }

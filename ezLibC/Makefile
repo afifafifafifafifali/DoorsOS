@@ -6,7 +6,7 @@ PLATFORM ?= linux
 SRCDIR = src
 PLATFORMDIR = platform/$(PLATFORM)
 
-CFLAGS = -Wall -Wextra -ffreestanding -nostdlib -Iinclude -I$(PLATFORMDIR) -O2
+CFLAGS = -Wall -Wextra -ffreestanding -nostdlib -Iinclude -static -nostdlib -I$(PLATFORMDIR) -O2
 LDFLAGS =
 
 # Source files

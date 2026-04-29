@@ -45,7 +45,6 @@ off_t lseek(int fd, off_t offset, int whence);
 
 int open(const char* pathname, int flags, ...);  /* mode needed with O_CREAT */
 
-/* Note: kernel has no close syscall — this is a stub until added */
 int close(int fd);
 
 /* ==================================================================

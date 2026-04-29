@@ -9,6 +9,8 @@
 #include "PhysAlloc.h"
 #include "mem/heap.h"
 
+#define ELF64_R_SYM(i)    ((i) >> 32)
+#define ELF64_R_TYPE(i)   ((i) & 0xffffffffL)
 #define FIXED_HIGHER_HALF_OFFSET_64 ((uint64_t)0xffffffff80000000)
 
 /* ELF Magic */
@@ -67,6 +69,11 @@
 #define SHT_REL      9  /* Relocation entries */
 #define SHT_DYNSYM   11 /* Dynamic symbol table */
 
+/* Section header flags */
+#define SHF_WRITE      0x1  /* Writable section */
+#define SHF_ALLOC      0x2  /* Occupies memory */
+#define SHF_EXECINSTR  0x4  /* Executable section */
+
 /* Symbol binding */
 #define STB_LOCAL  0
 #define STB_GLOBAL 1
@@ -99,9 +106,7 @@
 #define R_X86_64_GOTPCREL  9
 #define R_X86_64_GLOB_DAT  6   
 #define R_X86_64_JUMP_SLOT 7  
-#define R_X86_64_RELATIVE  8   
 #define R_X86_64_COPY      5   
-
 
 /*DYNAMIK TAGS*/
 
@@ -131,6 +136,7 @@
 #define DT_TEXTREL  22
 #define DT_JMPREL   23
 #define DT_BIND_NOW 24
+
 /* ELF errors */
 typedef enum {
     ELF_OK = 0,
@@ -203,7 +209,7 @@ struct elf64_sym {
 struct elf64_rela {
     uint64_t offset;
     uint64_t info;
-    int32_t  addend;
+    int64_t  addend;
 };
 
 /* ELF64 relocation entry (without addend) */
@@ -267,7 +273,8 @@ elf_error_t elf64_load_file(const char *path, elf64_program_t *prog);
 struct elf64_sym *elf64_get_symbol(elf64_t *elf, const char *name);
 
 /* Apply relocations */
-elf_error_t elf64_relocate(elf64_t *elf);
+/* NOTE: This is now internal and called from elf64_load.
+   The function signature changed to accept segment mappings. */
 
 /* Unload ELF64 program */
 void elf64_unload(elf64_program_t *prog);

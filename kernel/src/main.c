@@ -693,9 +693,20 @@ void kmain(void) {
             serial_io_printf("Running ELF binary with syscall...\n");
 
           uint64_t result;
-            char *argv[] = { "program_name", "arg1", "arg2", NULL };
+           char *argv[] = {
+    "doom",
+    "-iwad",
+    "doom.wad",
+    "-width",
+    "100",
+    "-height",
+    "32",
+    NULL
+};
+
+uint64_t argc = 6;
             char *envp[] = {"HOME=/","KERNEL=/efi/boot","basharbai","nawfle","laden","obama",NULL};
-            uint64_t argc = 3;
+            
 
             asm volatile(
                 "mov %%rsp, %%r12\n\t"         // save old stack

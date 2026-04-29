@@ -211,3 +211,8 @@ int64_t int64_isatty(int fd) {
   int64_t sys_munmap(void* addr, size_t length) {
     return syscall2(SYS_MUNMAP, (uint64_t)addr, length);
 }
+
+#define SYS_GETTICKS       686769
+int64_t sys_getticks(void){
+    return syscall0(SYS_GETTICKS);
+}

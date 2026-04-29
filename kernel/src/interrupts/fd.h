@@ -13,12 +13,13 @@ typedef enum {
 } fd_type_t;
 
 // File opening flags
-#define O_RDONLY    0x0001
-#define O_WRONLY    0x0002
-#define O_RDWR      0x0003
-#define O_CREAT     0x0100
-#define O_TRUNC     0x0200
-#define O_APPEND    0x0400
+#define O_RDONLY    00
+#define O_WRONLY    01
+#define O_RDWR      02
+#define O_CREAT     0100
+#define O_TRUNC     01000
+#define O_APPEND    02000
+
 
 // Seek whence values
 #define SEEK_SET    0

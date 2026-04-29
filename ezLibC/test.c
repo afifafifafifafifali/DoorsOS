@@ -49,13 +49,18 @@ int read_line(char* buf, int max_len) {
 
     buf[total] = '\0';
     return total;
-}
+}/*
 int main(){
     double rizz = 0.123456789123657 / 2.00;
     printf("FUCK YOURSELF NIGGA! %f\n",rizz);
-    char c[1000]; read_line(c,999);
+    char c[1000]; 
+    printf("Input plis: \n");
+    scanf("%s",c);
     printf("%s\n",c);
 
+    int fd = open("LGBTQ.txt",O_CREAT | O_RDWR );
+    write(fd,"Hi",3);
+    close(fd);
     
     return 0;
-}
+}*/

@@ -9,7 +9,7 @@
 #include "../interrupts/fd.h"
 #include "../interrupts/pipe.h"
 #include "../bootloader.h"
-
+#include "../interrupts/timer.h"
 #include "../mem/heap.h"
 #include "../fs/fat32.h"
 #include "../libs/string.h"
@@ -256,6 +256,10 @@ uint64_t syscall_handler_c(uint64_t arg1, uint64_t arg2, uint64_t arg3,
             break;
         }
         
+        case SYS_GETTICKS: {
+            ret = (uint64_t)timer_get_ticks();
+            break;
+        }
         case SYS_WRITE: {
 
             int fd = (int)arg1;

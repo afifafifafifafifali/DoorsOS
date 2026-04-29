@@ -178,6 +178,7 @@ struct stat {
 #define EDEADLK            35
 #define ENAMETOOLONG       36
 #define ENOLCK             37
+#define SYS_GETTICKS       686769
 
 // Standard file descriptors
 #define STDIN_FILENO        0
@@ -189,22 +190,24 @@ struct stat {
 #define FD_FRAMEBUFFER      4
 #define FD_MOUSE_EVENTS     5
 
-/* Framebuffer info returned via ioctl() */
-#pragma pack(push, 1)
 struct fb_info {
     uint64_t addr;
     uint64_t width;
     uint64_t height;
     uint64_t pitch;
+
     uint16_t bpp;
-    uint8_t  red_mask_size;
-    uint8_t  red_mask_shift;
-    uint8_t  green_mask_size;
-    uint8_t  green_mask_shift;
-    uint8_t  blue_mask_size;
-    uint8_t  blue_mask_shift;
-};
-#pragma pack(pop)
+    uint8_t memory_model;
+
+    uint8_t red_mask_size;
+    uint8_t red_mask_shift;
+    uint8_t green_mask_size;
+    uint8_t green_mask_shift;
+    uint8_t blue_mask_size;
+    uint8_t blue_mask_shift;
+
+    uint8_t unused[7];
+} __attribute__((packed));
 
 /* ioctl commands */
 #define FBIOGET_INFO     0x4601  /* get fb_info struct */
@@ -380,6 +383,9 @@ static inline int64_t sys_munmap(void* addr, size_t length) {
     return syscall2(SYS_MUNMAP, (uint64_t)addr, length);
 }
 
+static inline int64_t sys_getticks(){
+    return syscall0(SYS_GETTICKS);
+}
 static inline int64_t sys_msync(void* addr, size_t length) {
     return syscall2(SYS_MSYNC, (uint64_t)addr, length);
 }

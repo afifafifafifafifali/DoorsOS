@@ -122,6 +122,9 @@ $(IMAGE_NAME).iso: kernel
 	rm -rf iso_root
 	mkdir -p iso_root/boot
 	cp -v kernel/bin/kernel iso_root/boot/
+	@if [ -f doom.wad ]; then \
+		cp -v doom.wad iso_root/doom.wad; \
+	fi
 	mkdir -p iso_root/boot/limine
 	cp -v limine.conf limine/limine-bios.sys limine/limine-bios-cd.bin limine/limine-uefi-cd.bin iso_root/boot/limine/
 	mkdir -p iso_root/EFI/BOOT
@@ -149,6 +152,7 @@ $(IMAGE_NAME).hdd:  kernel
 	mcopy -i $(IMAGE_NAME).hdd@@1M test_add ::/
 	mcopy -i $(IMAGE_NAME).hdd@@1M test_lib.so ::/lib/
 	mcopy -i $(IMAGE_NAME).hdd@@1M capitalism.csv ::/govdb.csv
+	mcopy -i $(IMAGE_NAME).hdd@@1M doom1.wad ::/doom.wad
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf limine/limine-bios.sys ::/boot/limine
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTX64.EFI ::/EFI/BOOT
 	mcopy -i $(IMAGE_NAME).hdd@@1M limine/BOOTIA32.EFI ::/EFI/BOOT

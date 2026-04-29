@@ -65,6 +65,9 @@ int vfprintf(FILE* stream, const char* fmt, va_list ap);
 int vsprintf(char* buf, const char* fmt, va_list ap);
 int vsnprintf(char* buf, size_t n, const char* fmt, va_list ap);
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 /* ------------------------------------------------------------------
  * Formatted input
  * ------------------------------------------------------------------ */
